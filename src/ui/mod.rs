@@ -492,6 +492,18 @@ pub async fn run_interactive(
                                 is_running = true;
 
                                 session.add_message(MessageRole::User, &text);
+                                if !cli.no_session {
+                                    let _ = crate::session::chat_history::append_entry(
+                                        &crate::session::chat_history::ChatHistoryEntry {
+                                            role: "user".to_string(),
+                                            content: text.to_string(),
+                                            timestamp: session.updated_at.clone(),
+                                            session_id: session.id.clone(),
+                                            model: session.model.clone(),
+                                            provider: session.provider.clone(),
+                                        },
+                                    );
+                                }
                             }
                         }
                         refresh_display(&mut renderer, &input, session, is_running, loop_label.as_deref(), context.current_prompt_name.as_deref(), perm_mode().as_deref())?;
@@ -606,6 +618,18 @@ pub async fn run_interactive(
                         renderer.write_line("", Color::White)?;
                         renderer.write_line("", Color::White)?;
                         session.add_message(MessageRole::Assistant, &response);
+                        if !cli.no_session {
+                            let _ = crate::session::chat_history::append_entry(
+                                &crate::session::chat_history::ChatHistoryEntry {
+                                    role: "assistant".to_string(),
+                                    content: response.to_string(),
+                                    timestamp: session.updated_at.clone(),
+                                    session_id: session.id.clone(),
+                                    model: session.model.clone(),
+                                    provider: session.provider.clone(),
+                                },
+                            );
+                        }
                         session.total_tokens = session.total_tokens.saturating_add(tokens);
                         session.total_cost += cost;
                         agent_line_started = false;
