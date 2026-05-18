@@ -281,11 +281,13 @@ pub fn create_client(
 
     let key = resolve_api_key(info.kind, info.api_key_env.as_deref(), api_key)?;
 
-    let base_url = if info.kind == ProviderKind::Custom {
-        std::env::var("CUSTOM_BASE_URL").ok()
-    } else {
-        info.base_url
-    };
+    let base_url = info.base_url.or_else(|| {
+        if info.kind == ProviderKind::Custom {
+            std::env::var("CUSTOM_BASE_URL").ok()
+        } else {
+            None
+        }
+    });
 
     match info.kind {
         ProviderKind::OpenAI => {
