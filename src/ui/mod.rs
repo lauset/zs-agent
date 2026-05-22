@@ -215,10 +215,57 @@ fn spawn_event_thread(
     })
 }
 
+#[cfg(feature = "mcp")]
+async fn ensure_agent(
+    agent: &mut Option<AnyAgent>,
+    client: &AnyClient,
+    session: &Session,
+    cli: &Cli,
+    cfg: &Config,
+    context: &ContextFiles,
+    permission: &Option<PermCheck>,
+    ask_tx: &Option<AskSender>,
+    sandbox: &Sandbox,
+    reasoning_enabled: bool,
+    mcp_manager: Option<&McpClientManager>,
+) {
+    if agent.is_some() {
+        return;
+    }
+    let model = client.completion_model(session.model.to_string());
+    *agent = Some(crate::provider::build_agent(
+        model, cli, cfg, context, permission.clone(), ask_tx.clone(),
+        sandbox.clone(), reasoning_enabled, mcp_manager,
+    ).await);
+}
+
+#[cfg(not(feature = "mcp"))]
+async fn ensure_agent(
+    agent: &mut Option<AnyAgent>,
+    client: &AnyClient,
+    session: &Session,
+    cli: &Cli,
+    cfg: &Config,
+    context: &ContextFiles,
+    permission: &Option<PermCheck>,
+    ask_tx: &Option<AskSender>,
+    sandbox: &Sandbox,
+    reasoning_enabled: bool,
+) {
+    if agent.is_some() {
+        return;
+    }
+    let model = client.completion_model(session.model.to_string());
+    *agent = Some(crate::provider::build_agent(
+        model, cli, cfg, context, permission.clone(), ask_tx.clone(),
+        sandbox.clone(), reasoning_enabled,
+    ).await);
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn run_interactive(
     mut client: AnyClient,
-    mut agent: AnyAgent,
+    mut agent: Option<AnyAgent>,
     cli: &Cli,
     cfg: &Config,
     session: &mut Session,
@@ -493,7 +540,12 @@ pub async fn run_interactive(
                                             );
                                             session.add_message(MessageRole::User, &prompt);
                                             let history = crate::agent::runner::convert_history(session);
-                                            let runner = agent.clone().spawn_runner(prompt, history);
+                                            ensure_agent(
+                                                &mut agent, &client, session, cli, cfg, context,
+                                                &permission, &ask_tx, &sandbox, reasoning_enabled,
+                                                #[cfg(feature = "mcp")] mcp_manager,
+                                            ).await;
+                                            let runner = agent.as_ref().unwrap().clone().spawn_runner(prompt, history);
                                             agent_rx = Some(runner.event_rx);
                                             is_running = true;
                                             wt_return_path = Some(main_path);
@@ -510,7 +562,7 @@ pub async fn run_interactive(
                                             session.working_dir = compact_str::CompactString::new(main_path);
                                             context.reload();
                                             let model = client.completion_model(session.model.to_string());
-                                            agent = crate::provider::build_agent(
+                                            agent = Some(crate::provider::build_agent(
                                                 model,
                                                 cli,
                                                 cfg,
@@ -520,7 +572,7 @@ pub async fn run_interactive(
                                                 sandbox.clone(),
                                                 reasoning_enabled,
                                                 #[cfg(feature = "mcp")] mcp_manager,
-                                            ).await;
+                                            ).await);
                                             render_session(&mut renderer, session, cli, cfg, context)?;
                                             renderer.write_line(
                                                 &format!("returned to main repo at {}", main_path),
@@ -549,7 +601,12 @@ pub async fn run_interactive(
                                         {
                                             ls.iteration = 1;
                                             let prompt = ls.build_prompt();
-                                            let runner = agent.clone().spawn_runner(prompt, Vec::new());
+                                            ensure_agent(
+                                                &mut agent, &client, session, cli, cfg, context,
+                                                &permission, &ask_tx, &sandbox, reasoning_enabled,
+                                                #[cfg(feature = "mcp")] mcp_manager,
+                                            ).await;
+                                            let runner = agent.as_ref().unwrap().clone().spawn_runner(prompt, Vec::new());
                                             agent_rx = Some(runner.event_rx);
                                             is_running = true;
                                             loop_label = Some(ls.iteration_label());
@@ -571,8 +628,13 @@ pub async fn run_interactive(
                                 }
                                 renderer.write_line("", Color::White)?;
 
+                                ensure_agent(
+                                    &mut agent, &client, session, cli, cfg, context,
+                                    &permission, &ask_tx, &sandbox, reasoning_enabled,
+                                    #[cfg(feature = "mcp")] mcp_manager,
+                                ).await;
                                 let history = crate::agent::runner::convert_history(session);
-                                let runner = agent.clone().spawn_runner(
+                                let runner = agent.as_ref().unwrap().clone().spawn_runner(
                                     text.to_string(),
                                     history,
                                 );
@@ -769,7 +831,12 @@ pub async fn run_interactive(
                                 ls.last_summary = Some(summary);
                                 ls.iteration += 1;
                                 let prompt = ls.build_prompt();
-                                let runner = agent.clone().spawn_runner(prompt, Vec::new());
+                                ensure_agent(
+                                    &mut agent, &client, session, cli, cfg, context,
+                                    &permission, &ask_tx, &sandbox, reasoning_enabled,
+                                    #[cfg(feature = "mcp")] mcp_manager,
+                                ).await;
+                                let runner = agent.as_ref().unwrap().clone().spawn_runner(prompt, Vec::new());
                                 agent_rx = Some(runner.event_rx);
                                 is_running = true;
                                 loop_label = Some(ls.iteration_label());
@@ -787,7 +854,7 @@ pub async fn run_interactive(
                                     session.working_dir = compact_str::CompactString::new(&main_path);
                                     context.reload();
                                     let model = client.completion_model(session.model.to_string());
-                                    agent = crate::provider::build_agent(
+                                    agent = Some(crate::provider::build_agent(
                                         model,
                                         cli,
                                         cfg,
@@ -797,7 +864,7 @@ pub async fn run_interactive(
                                         sandbox.clone(),
                                         reasoning_enabled,
                                         #[cfg(feature = "mcp")] mcp_manager,
-                                    ).await;
+                                    ).await);
                                     render_session(&mut renderer, session, cli, cfg, context)?;
                                     renderer.write_line(
                                         &format!("merged and returned to main repo at {}", main_path),

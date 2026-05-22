@@ -48,7 +48,7 @@ pub fn undo_last(session: &mut Session) -> usize {
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_compress(
     instructions: Option<&str>,
-    agent: &mut AnyAgent,
+    agent: &mut Option<AnyAgent>,
     client: &mut AnyClient,
     renderer: &mut Renderer,
     session: &mut Session,
@@ -108,7 +108,7 @@ pub async fn handle_compress(
     session.compress(summary, cut_idx, tokens_before);
 
     let model = client.completion_model(session.model.to_string());
-    *agent = crate::provider::build_agent(
+    *agent = Some(crate::provider::build_agent(
         model,
         cli,
         cfg,
@@ -120,7 +120,7 @@ pub async fn handle_compress(
         #[cfg(feature = "mcp")]
         mcp_manager,
     )
-    .await;
+    .await);
     renderer.write_line("prompt cleared (back to default behavior)", C_AGENT)?;
 
     render_session(renderer, session, cli, cfg, context)?;
@@ -138,7 +138,7 @@ pub async fn handle_compress(
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_slash(
     text: &str,
-    agent: &mut AnyAgent,
+    agent: &mut Option<AnyAgent>,
     client: &mut AnyClient,
     renderer: &mut Renderer,
     session: &mut Session,
@@ -179,7 +179,7 @@ pub async fn handle_slash(
                     cfg.api_keys.as_ref(),
                 )?;
                 let model = client.completion_model(session.model.to_string());
-                *agent = crate::provider::build_agent(
+                *agent = Some(crate::provider::build_agent(
                     model,
                     cli,
                     cfg,
@@ -191,7 +191,7 @@ pub async fn handle_slash(
                     #[cfg(feature = "mcp")]
                     mcp_manager,
                 )
-                .await;
+                .await);
                 session.provider = CompactString::new(new_provider);
                 renderer.write_line(
                     &format!("switched to provider: {}", new_provider),
@@ -205,7 +205,7 @@ pub async fn handle_slash(
             } else {
                 let new_model = CompactString::new(parts[1].trim());
                 let model = client.completion_model(new_model.to_string());
-                *agent = crate::provider::build_agent(
+                *agent = Some(crate::provider::build_agent(
                     model,
                     cli,
                     cfg,
@@ -217,7 +217,7 @@ pub async fn handle_slash(
                     #[cfg(feature = "mcp")]
                     mcp_manager,
                 )
-                .await;
+                .await);
                 session.model = new_model.clone();
                 session.provider = cli.resolve_provider(cfg);
                 renderer.write_line(&format!("switched to model: {}", new_model), C_AGENT)?;
@@ -256,7 +256,7 @@ pub async fn handle_slash(
                         cfg.api_keys.as_ref(),
                     )?;
                     let model = client.completion_model(q.model.to_string());
-                    *agent = crate::provider::build_agent(
+                    *agent = Some(crate::provider::build_agent(
                         model,
                         cli,
                         cfg,
@@ -268,7 +268,7 @@ pub async fn handle_slash(
                         #[cfg(feature = "mcp")]
                         mcp_manager,
                     )
-                    .await;
+                    .await);
                     session.provider = CompactString::new(&q.provider);
                     session.model = CompactString::new(&q.model);
                     renderer.write_line(
@@ -459,7 +459,7 @@ pub async fn handle_slash(
             *reasoning_enabled = !*reasoning_enabled;
             *show_reasoning = *reasoning_enabled;
             let model = client.completion_model(session.model.to_string());
-            *agent = crate::provider::build_agent(
+            *agent = Some(crate::provider::build_agent(
                 model,
                 cli,
                 cfg,
@@ -471,7 +471,7 @@ pub async fn handle_slash(
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
-            .await;
+            .await);
             renderer.write_line(
                 &format!(
                     "reasoning: {}",
@@ -645,7 +645,7 @@ pub async fn handle_slash(
                 } else {
                     *todo_tools_enabled = new_state;
                     let model = client.completion_model(session.model.to_string());
-                    *agent = crate::provider::build_agent(
+                    *agent = Some(crate::provider::build_agent(
                         model,
                         cli,
                         cfg,
@@ -657,7 +657,7 @@ pub async fn handle_slash(
                         #[cfg(feature = "mcp")]
                         mcp_manager,
                     )
-                    .await;
+                    .await);
                     renderer.write_line(
                         &format!(
                             "todo tools: {}",
@@ -751,7 +751,7 @@ pub async fn handle_slash(
                     context.current_prompt = None;
                     context.current_prompt_name = None;
                     let model = client.completion_model(session.model.to_string());
-                    *agent = crate::provider::build_agent(
+                    *agent = Some(crate::provider::build_agent(
                         model,
                         cli,
                         cfg,
@@ -763,7 +763,7 @@ pub async fn handle_slash(
                         #[cfg(feature = "mcp")]
                         mcp_manager,
                     )
-                    .await;
+                    .await);
                 }
             } else {
                 let name = parts[1].trim();
@@ -771,7 +771,7 @@ pub async fn handle_slash(
                     context.current_prompt = Some(content.clone());
                     context.current_prompt_name = Some(name.to_string());
                     let model = client.completion_model(session.model.to_string());
-                    *agent = crate::provider::build_agent(
+                    *agent = Some(crate::provider::build_agent(
                         model,
                         cli,
                         cfg,
@@ -783,7 +783,7 @@ pub async fn handle_slash(
                         #[cfg(feature = "mcp")]
                         mcp_manager,
                     )
-                    .await;
+                    .await);
                     renderer.write_line(&format!("active prompt: {}", name), C_AGENT)?;
                 } else {
                     renderer.write_line(&format!("unknown prompt: '{}'", name), C_ERROR)?;
@@ -860,7 +860,7 @@ pub async fn handle_slash(
                     session.working_dir = compact_str::CompactString::new(path.to_string_lossy());
                     context.reload();
                     let model = client.completion_model(session.model.to_string());
-                    *agent = crate::provider::build_agent(
+                    *agent = Some(crate::provider::build_agent(
                         model,
                         cli,
                         cfg,
@@ -872,7 +872,7 @@ pub async fn handle_slash(
                         #[cfg(feature = "mcp")]
                         mcp_manager,
                     )
-                    .await;
+                    .await);
                     render_session(renderer, session, cli, cfg, context)?;
                     renderer.write_line(
                         &format!("worktree created: branch '{}' at {}", name, path.display()),

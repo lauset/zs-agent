@@ -227,20 +227,6 @@ async fn main() -> anyhow::Result<()> {
             return run_headless_loop(agent, &cli, &cfg, &context).await;
         }
 
-        let agent = provider::build_agent(
-            completion_model,
-            &cli,
-            &cfg,
-            &context,
-            permission.clone(),
-            ask_tx.clone(),
-            sandbox.clone(),
-            true,
-            #[cfg(feature = "mcp")]
-            mcp_manager.as_ref(),
-        )
-        .await;
-
         if !cli.resolve_no_tools(&cfg)
             && let Some(perm) = &permission
         {
@@ -256,7 +242,7 @@ async fn main() -> anyhow::Result<()> {
         }
         ui::run_interactive(
             client,
-            agent,
+            None,
             &cli,
             &cfg,
             &mut session,
