@@ -1,5 +1,5 @@
-use crate::agent::tools::edit::EditTool;
 use crate::agent::tools::EditArgs;
+use crate::agent::tools::edit::EditTool;
 use rig::tool::Tool;
 
 struct TempFile(String);
@@ -64,8 +64,9 @@ async fn test_search_not_found() {
     let result = tool
         .call(EditArgs {
             path: tmp.path().into(),
-            block: "<<<<<<< SEARCH\nthis does not exist in file\n=======\nreplacement\n>>>>>>> REPLACE"
-                .into(),
+            block:
+                "<<<<<<< SEARCH\nthis does not exist in file\n=======\nreplacement\n>>>>>>> REPLACE"
+                    .into(),
         })
         .await;
     assert!(result.is_err());

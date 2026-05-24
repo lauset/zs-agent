@@ -2,8 +2,8 @@ use rig::completion::ToolDefinition;
 use rig::tool::Tool;
 
 use crate::agent::tools::{
-    AskSender, EditArgs, EditBlock, PermCheck, ToolError, check_perm_path,
-    levenshtein_similarity, normalize_whitespace,
+    AskSender, EditArgs, EditBlock, PermCheck, ToolError, check_perm_path, levenshtein_similarity,
+    normalize_whitespace,
 };
 
 pub struct EditTool {
@@ -107,8 +107,11 @@ fn compute_byte_range(content: &str, norm_pos: usize, norm_len: usize) -> (usize
 
         if found_start {
             if norm_byte + norm_line_len >= norm_end {
-            // Match ends within this line
-                return (orig_byte_start, orig_byte_end + orig_line_len.saturating_sub(1));
+                // Match ends within this line
+                return (
+                    orig_byte_start,
+                    orig_byte_end + orig_line_len.saturating_sub(1),
+                );
             }
         }
 
@@ -141,8 +144,10 @@ fn find_best_match(content: &str, search: &str) -> MatchResult {
         return MatchResult::NotFound;
     }
 
-    let search_norm_lines: Vec<String> =
-        search_lines.iter().map(|l| normalize_whitespace(l)).collect();
+    let search_norm_lines: Vec<String> = search_lines
+        .iter()
+        .map(|l| normalize_whitespace(l))
+        .collect();
     let search_norm_joined = search_norm_lines.join("\n");
 
     let mut best_sim = 0.0f64;
@@ -250,9 +255,7 @@ impl Tool for EditTool {
                             .collect();
 
                         let mut match_info = Vec::new();
-                        for byte_idx in
-                            content.match_indices(&block.search).map(|(i, _)| i)
-                        {
+                        for byte_idx in content.match_indices(&block.search).map(|(i, _)| i) {
                             let line_num = match line_starts.binary_search(&byte_idx) {
                                 Ok(i) => i + 1,
                                 Err(i) => i,

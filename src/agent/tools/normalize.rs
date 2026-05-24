@@ -53,10 +53,12 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
     for i in 1..=a_len {
         curr[0] = i;
         for j in 1..=b_len {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
-            curr[j] = (prev[j] + 1)
-                .min(curr[j - 1] + 1)
-                .min(prev[j - 1] + cost);
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }
@@ -78,18 +80,12 @@ mod tests {
 
     #[test]
     fn normalize_trailing_spaces() {
-        assert_eq!(
-            normalize_whitespace("hello   \nworld\n"),
-            "hello\nworld\n"
-        );
+        assert_eq!(normalize_whitespace("hello   \nworld\n"), "hello\nworld\n");
     }
 
     #[test]
     fn normalize_collapse_blank_lines() {
-        assert_eq!(
-            normalize_whitespace("a\n\n\nb\n"),
-            "a\n\nb\n"
-        );
+        assert_eq!(normalize_whitespace("a\n\n\nb\n"), "a\n\nb\n");
     }
 
     #[test]
