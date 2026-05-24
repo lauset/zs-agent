@@ -22,9 +22,9 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use clap::Parser;
 use session::MessageRole;
 
+use crate::permission::SecurityMode;
 use crate::permission::ask::AskSender;
 use crate::permission::checker::{PermCheck, PermissionChecker};
-use crate::permission::SecurityMode;
 
 fn resolve_mode(cli: &cli::Cli, cfg: &config::Config) -> SecurityMode {
     if cli.yolo || cfg.yolo.unwrap_or(false) {

@@ -1,7 +1,7 @@
 use compact_str::CompactString;
 use crossterm::style::Color;
 use pulldown_cmark::{Event, Tag, TagEnd};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
 use super::renderer::LineEntry;
 

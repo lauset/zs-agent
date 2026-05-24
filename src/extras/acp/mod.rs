@@ -10,9 +10,9 @@ use crate::cli::Cli;
 use crate::config::Config;
 use crate::context::ContextFiles;
 use crate::event::AgentEvent;
+use crate::permission::SecurityMode;
 use crate::permission::ask::AskSender;
 use crate::permission::checker::{PermCheck, PermissionChecker};
-use crate::permission::SecurityMode;
 use crate::sandbox::Sandbox;
 
 struct AcpState {

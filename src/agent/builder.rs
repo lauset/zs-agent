@@ -46,8 +46,16 @@ pub async fn build_agent_inner<M: CompletionModel + 'static>(
         + SYSTEM_PROMPT.len()
         + 1
         + TODO_TOOLS_PROMPT.len()
-        + if context.agents.is_some() { 2 + context_agents.len() } else { 0 }
-        + if context.current_prompt.is_some() { 6 + context_prompt.len() } else { 0 }
+        + if context.agents.is_some() {
+            2 + context_agents.len()
+        } else {
+            0
+        }
+        + if context.current_prompt.is_some() {
+            6 + context_prompt.len()
+        } else {
+            0
+        }
         + if !cwd.is_empty() { 30 + cwd.len() } else { 0 };
 
     let mut preamble = String::with_capacity(total_len);
@@ -86,8 +94,16 @@ pub async fn build_agent_inner<M: CompletionModel + 'static>(
     } else {
         let max_text_file_size = cfg.max_text_file_size;
         let base_tools: SmallVec<[Box<dyn rig::tool::ToolDyn>; 8]> = SmallVec::from_buf([
-            Box::new(tools::ReadTool::new(permission.clone(), ask_tx.clone(), max_text_file_size)),
-            Box::new(tools::WriteTool::new(permission.clone(), ask_tx.clone(), max_text_file_size)),
+            Box::new(tools::ReadTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+                max_text_file_size,
+            )),
+            Box::new(tools::WriteTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+                max_text_file_size,
+            )),
             Box::new(tools::EditTool::new(permission.clone(), ask_tx.clone())),
             Box::new(tools::BashTool::new(
                 permission.clone(),
@@ -113,9 +129,7 @@ pub async fn build_agent_inner<M: CompletionModel + 'static>(
             let allow_all = cfg.allow_all_mcp_calls.unwrap_or(false);
             let mcp_permission = if allow_all { None } else { permission.clone() };
             let mcp_ask_tx = if allow_all { None } else { ask_tx.clone() };
-            let mcp_tools = manager
-                .collect_tools(mcp_permission, mcp_ask_tx)
-                .await;
+            let mcp_tools = manager.collect_tools(mcp_permission, mcp_ask_tx).await;
             if !mcp_tools.is_empty() {
                 let dyn_tools: Vec<Box<dyn rig::tool::ToolDyn>> = mcp_tools
                     .into_iter()

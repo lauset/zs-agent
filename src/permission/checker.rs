@@ -75,8 +75,16 @@ impl PermissionChecker {
         mode: SecurityMode,
         working_dir: Option<std::path::PathBuf>,
     ) -> Self {
-        let default_action = configs.glob.default.or(configs.regex.default).unwrap_or(Action::Allow);
-        let doom_loop_action = configs.glob.doom_loop.or(configs.regex.doom_loop).unwrap_or(Action::Ask);
+        let default_action = configs
+            .glob
+            .default
+            .or(configs.regex.default)
+            .unwrap_or(Action::Allow);
+        let doom_loop_action = configs
+            .glob
+            .doom_loop
+            .or(configs.regex.doom_loop)
+            .unwrap_or(Action::Ask);
 
         let mut rules = Self::compile_config(&configs.glob, false);
         let regex_rules = Self::compile_config(&configs.regex, true);

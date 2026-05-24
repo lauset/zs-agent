@@ -1,12 +1,57 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use include_dir::Dir;
 use smallvec::SmallVec;
 
 use crate::session::storage;
 
 pub mod prompts;
 pub mod themes;
+
+pub(crate) fn load_embedded_files(embedded: &Dir, ext: &str) -> Vec<(String, String)> {
+    let mut results = Vec::new();
+    for file in embedded.files() {
+        if file.path().extension().is_some_and(|e| e == ext)
+            && let Some(name) = file.path().file_stem().and_then(|s| s.to_str())
+            && let Some(content) = file.contents_utf8()
+        {
+            results.push((name.to_string(), content.to_string()));
+        }
+    }
+    results
+}
+
+pub(crate) fn load_dir_files(dir: &Path, ext: &str) -> Vec<(String, String)> {
+    let mut results = Vec::new();
+    if dir.exists()
+        && let Ok(entries) = std::fs::read_dir(dir)
+    {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|e| e == ext)
+                && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+                && let Ok(content) = std::fs::read_to_string(&path)
+            {
+                results.push((name.to_string(), content));
+            }
+        }
+    }
+    results
+}
+
+pub(crate) fn copy_embedded_to(embedded: &Dir, dest: &Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dest)?;
+    for file in embedded.files() {
+        if let Some(name) = file.path().file_name().and_then(|s| s.to_str()) {
+            let dest_path = dest.join(name);
+            if let Some(content) = file.contents_utf8() {
+                std::fs::write(&dest_path, content)?;
+            }
+        }
+    }
+    Ok(())
+}
 
 pub struct ContextFiles {
     pub agents: Option<String>,

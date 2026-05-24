@@ -65,7 +65,11 @@ impl ToolDyn for McpTool {
             let perm_key = format!("mcp_tool:{server_name}:{tool_name}");
             check_perm(&permission, &ask_tx, "mcp_tool", &perm_key)
                 .await
-                .map_err(|e| ToolError::ToolCallError(Box::new(McpToolError(CompactString::new(e.to_string())))))?;
+                .map_err(|e| {
+                    ToolError::ToolCallError(Box::new(McpToolError(CompactString::new(
+                        e.to_string(),
+                    ))))
+                })?;
 
             let arguments: Option<JsonObject> = serde_json::from_str(&args).unwrap_or_default();
             let params = arguments
@@ -73,7 +77,9 @@ impl ToolDyn for McpTool {
                 .unwrap_or_else(|| CallToolRequestParams::new(tool_name.clone()));
 
             let result = peer.call_tool(params).await.map_err(|e| {
-                ToolError::ToolCallError(Box::new(McpToolError(CompactString::new(format!("MCP tool error: {e}")))))
+                ToolError::ToolCallError(Box::new(McpToolError(CompactString::new(format!(
+                    "MCP tool error: {e}"
+                )))))
             })?;
 
             if result.is_error.unwrap_or(false) {
@@ -91,7 +97,9 @@ impl ToolDyn for McpTool {
                 } else {
                     error_msg
                 };
-                return Err(ToolError::ToolCallError(Box::new(McpToolError(CompactString::new(msg)))));
+                return Err(ToolError::ToolCallError(Box::new(McpToolError(
+                    CompactString::new(msg),
+                ))));
             }
 
             let mut content = String::new();

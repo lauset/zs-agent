@@ -1,120 +1,21 @@
+mod cursor;
+mod pickers;
+
+pub use cursor::cursor_to_line_col;
+pub use cursor::{
+    count_lines, line_col_to_cursor, line_end, line_start, next_char_boundary, prev_char_boundary,
+};
+pub use pickers::{
+    Picker, handle_command_picker_key, handle_file_picker_key, handle_models_picker_key,
+    handle_prompt_picker_key, handle_theme_picker_key,
+};
+
 use compact_str::CompactString;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::io::Write;
 
 use crate::ui::cmd_picker::{CommandPicker, ModelsPicker, PromptPicker, ThemePicker};
 use crate::ui::picker::FilePicker;
-
-fn prev_char_boundary(s: &str, idx: usize) -> usize {
-    let mut i = idx.saturating_sub(1);
-    while i > 0 && !s.is_char_boundary(i) {
-        i -= 1;
-    }
-    i
-}
-
-fn next_char_boundary(s: &str, idx: usize) -> usize {
-    let len = s.len();
-    let mut i = (idx + 1).min(len);
-    while i < len && !s.is_char_boundary(i) {
-        i += 1;
-    }
-    i
-}
-
-pub fn cursor_to_line_col(buffer: &str, cursor: usize) -> (usize, usize) {
-    let mut line = 0usize;
-    let mut col = 0usize;
-    for (i, ch) in buffer.char_indices() {
-        if i >= cursor {
-            break;
-        }
-        if ch == '\n' {
-            line += 1;
-            col = 0;
-        } else {
-            col += 1;
-        }
-    }
-    (line, col)
-}
-
-fn line_col_to_cursor(buffer: &str, target_line: usize, target_col: usize) -> usize {
-    let mut line = 0usize;
-    let mut col = 0usize;
-    for (i, ch) in buffer.char_indices() {
-        if line == target_line && col == target_col {
-            return i;
-        }
-        if ch == '\n' {
-            if line == target_line {
-                return i;
-            }
-            line += 1;
-            col = 0;
-        } else {
-            col += 1;
-        }
-    }
-    buffer.len()
-}
-
-fn count_lines(buffer: &str) -> usize {
-    buffer.chars().filter(|&c| c == '\n').count() + 1
-}
-
-fn line_start(buffer: &str, cursor: usize) -> usize {
-    let (line, _) = cursor_to_line_col(buffer, cursor);
-    line_col_to_cursor(buffer, line, 0)
-}
-
-fn line_end(buffer: &str, cursor: usize) -> usize {
-    let start = line_start(buffer, cursor);
-    buffer[start..]
-        .find('\n')
-        .map(|pos| start + pos)
-        .unwrap_or(buffer.len())
-}
-
-pub enum Picker {
-    File(FilePicker),
-    Command(CommandPicker),
-    Prompt(PromptPicker),
-    Models(ModelsPicker),
-    Theme(ThemePicker),
-}
-
-impl Picker {
-    pub fn active(&self) -> bool {
-        match self {
-            Picker::File(p) => p.active,
-            Picker::Command(p) => p.active,
-            Picker::Prompt(p) => p.active,
-            Picker::Models(p) => p.active,
-            Picker::Theme(p) => p.active,
-        }
-    }
-
-    pub fn set_monochrome(&mut self, monochrome: bool) {
-        match self {
-            Picker::File(p) => p.set_monochrome(monochrome),
-            Picker::Command(p) => p.set_monochrome(monochrome),
-            Picker::Prompt(p) => p.set_monochrome(monochrome),
-            Picker::Models(p) => p.set_monochrome(monochrome),
-            Picker::Theme(p) => p.set_monochrome(monochrome),
-        }
-    }
-
-    pub fn draw(&self) -> std::io::Result<()> {
-        match self {
-            Picker::File(p) => p.draw(),
-            Picker::Command(p) => p.draw(),
-            Picker::Prompt(p) => p.draw(),
-            Picker::Models(p) => p.draw(),
-            Picker::Theme(p) => p.draw(),
-        }
-    }
-}
 
 const MAX_KILL_RING: usize = 30;
 
@@ -459,26 +360,26 @@ impl InputEditor {
                     return None;
                 }
                 KeyCode::Char('y') => {
-                    if let Some(pos) = self.yank_pos {
-                        if self.kill_ring.len() > 1 {
-                            let start = self.cursor.saturating_sub(self.yank_len);
-                            if start <= self.cursor {
-                                let before: String = self.buffer.chars().take(start).collect();
-                                let after: String = self.buffer.chars().skip(self.cursor).collect();
-                                self.buffer = CompactString::new(&format!("{}{}", before, after));
-                                self.cursor = start;
-                            }
-                            let new_pos = if pos == 0 {
-                                self.kill_ring.len() - 1
-                            } else {
-                                pos - 1
-                            };
-                            self.yank_pos = Some(new_pos);
-                            let text = &self.kill_ring[new_pos];
-                            self.buffer.insert_str(self.cursor, text);
-                            self.yank_len = text.len();
-                            self.cursor += text.len();
+                    if let Some(pos) = self.yank_pos
+                        && self.kill_ring.len() > 1
+                    {
+                        let start = self.cursor.saturating_sub(self.yank_len);
+                        if start <= self.cursor {
+                            let before: String = self.buffer.chars().take(start).collect();
+                            let after: String = self.buffer.chars().skip(self.cursor).collect();
+                            self.buffer = CompactString::new(format!("{}{}", before, after));
+                            self.cursor = start;
                         }
+                        let new_pos = if pos == 0 {
+                            self.kill_ring.len() - 1
+                        } else {
+                            pos - 1
+                        };
+                        self.yank_pos = Some(new_pos);
+                        let text = &self.kill_ring[new_pos];
+                        self.buffer.insert_str(self.cursor, text);
+                        self.yank_len = text.len();
+                        self.cursor += text.len();
                     }
                     return None;
                 }
@@ -540,7 +441,6 @@ impl InputEditor {
                 self.draft = None;
                 self.yank_pos = None;
 
-                // Check if we should activate pickers after typing certain prefixes
                 if (self.picker.is_none() || !self.picker.as_ref().is_some_and(|p| p.active()))
                     && self.buffer.starts_with("/prompt ")
                 {
@@ -617,11 +517,11 @@ impl InputEditor {
             }
             KeyCode::Up => {
                 self.yank_pos = None;
-                return self.cursor_up();
+                self.cursor_up()
             }
             KeyCode::Down => {
                 self.yank_pos = None;
-                return self.cursor_down();
+                self.cursor_down()
             }
             KeyCode::Home => {
                 self.cursor = 0;
@@ -774,7 +674,7 @@ impl InputEditor {
         let deleted: String = chars[start..self.cursor].iter().collect();
         let before: String = chars[..start].iter().collect();
         let after: String = chars[self.cursor..].iter().collect();
-        self.buffer = CompactString::new(&format!("{}{}", before, after));
+        self.buffer = CompactString::new(format!("{}{}", before, after));
         self.cursor = start;
         CompactString::new(&deleted)
     }
@@ -789,7 +689,7 @@ impl InputEditor {
         let deleted: String = chars[self.cursor..end].iter().collect();
         let before: String = chars[..self.cursor].iter().collect();
         let after: String = chars[end..].iter().collect();
-        self.buffer = CompactString::new(&format!("{}{}", before, after));
+        self.buffer = CompactString::new(format!("{}{}", before, after));
         CompactString::new(&deleted)
     }
 }
@@ -1289,560 +1189,5 @@ mod tests {
         let mut ed = InputEditor::new();
         ed.handle_key(ctrl('d'));
         assert_eq!(ed.buffer.as_str(), "");
-    }
-}
-
-fn handle_file_picker_key(
-    buffer: &mut CompactString,
-    cursor: &mut usize,
-    picker: &mut FilePicker,
-    key: KeyEvent,
-) -> bool {
-    match key.code {
-        KeyCode::Char(c)
-            if c == '\x08' || (c == 'h' && key.modifiers.contains(KeyModifiers::CONTROL)) =>
-        {
-            if picker.cursor > 0 {
-                picker.backspace();
-                *cursor = prev_char_boundary(buffer, *cursor);
-                buffer.remove(*cursor);
-            } else {
-                let at_pos = buffer.rfind('@');
-                if let Some(at) = at_pos {
-                    let before: String = buffer.chars().take(at).collect();
-                    let after: String = buffer.chars().skip(at + 1).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = at;
-                }
-                picker.deactivate();
-            }
-            true
-        }
-        KeyCode::Char(c) => {
-            picker.char_input(c);
-            buffer.insert(*cursor, c);
-            *cursor += c.len_utf8();
-            true
-        }
-        KeyCode::Backspace => {
-            if picker.cursor > 0 {
-                picker.backspace();
-                *cursor = prev_char_boundary(buffer, *cursor);
-                buffer.remove(*cursor);
-                true
-            } else {
-                let at_pos = buffer.rfind('@');
-                if let Some(at) = at_pos {
-                    let before: String = buffer.chars().take(at).collect();
-                    let after: String = buffer.chars().skip(at + 1).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = at;
-                }
-                picker.deactivate();
-                true
-            }
-        }
-        KeyCode::Tab => {
-            if key
-                .modifiers
-                .contains(crossterm::event::KeyModifiers::SHIFT)
-            {
-                picker.select_prev();
-            } else {
-                picker.select_next();
-            }
-            true
-        }
-        KeyCode::Up => {
-            picker.select_prev();
-            true
-        }
-        KeyCode::Down => {
-            picker.select_next();
-            true
-        }
-        KeyCode::Enter => {
-            if let Some(path) = picker.selected_path() {
-                let path_str = path.to_string_lossy().to_string();
-                let at_pos = buffer.rfind('@');
-                if let Some(at) = at_pos {
-                    let before: String = buffer.chars().take(at).collect();
-                    let after_offset = at + 1 + picker.query.len();
-                    let after: String = buffer.chars().skip(after_offset).collect();
-                    let new_len = before.len() + path_str.len();
-                    *buffer = format!("{}{}{}", before, path_str, after).into();
-                    *cursor = new_len;
-                }
-            }
-            picker.deactivate();
-            true
-        }
-        KeyCode::Esc => {
-            let at_pos = buffer.rfind('@');
-            if let Some(at) = at_pos {
-                let before: String = buffer.chars().take(at).collect();
-                let after: String = buffer.chars().skip(at + 1 + picker.query.len()).collect();
-                *buffer = format!("{}{}", before, after).into();
-                *cursor = at;
-            }
-            picker.deactivate();
-            true
-        }
-        _ => false,
-    }
-}
-
-fn handle_command_picker_key(
-    buffer: &mut CompactString,
-    cursor: &mut usize,
-    prompt_names: &[String],
-    theme_names: &[String],
-    quick_model_names: &[String],
-    picker: &mut CommandPicker,
-    key: KeyEvent,
-) -> (bool, Option<Picker>) {
-    match key.code {
-        KeyCode::Char(c)
-            if c == '\x08' || (c == 'h' && key.modifiers.contains(KeyModifiers::CONTROL)) =>
-        {
-            if picker.cursor > 0 {
-                picker.backspace();
-                *cursor = prev_char_boundary(buffer, *cursor);
-                buffer.remove(*cursor);
-            } else {
-                if buffer.starts_with('/') {
-                    let after: String = buffer.chars().skip(1 + picker.query.len()).collect();
-                    *buffer = format!("/{}", after).into();
-                    *cursor = 1;
-                }
-                picker.deactivate();
-            }
-            (true, None)
-        }
-        KeyCode::Char(c) => {
-            picker.char_input(c);
-            let pos = 1 + picker.cursor.saturating_sub(1);
-            buffer.insert(pos, c);
-            *cursor += c.len_utf8();
-            (true, None)
-        }
-        KeyCode::Backspace => {
-            if picker.cursor > 0 {
-                picker.backspace();
-                let remove_pos = 1 + picker.cursor;
-                if remove_pos <= buffer.len() {
-                    buffer.remove(remove_pos);
-                }
-                *cursor = prev_char_boundary(buffer, *cursor);
-                (true, None)
-            } else {
-                if buffer.starts_with('/') {
-                    let after: String = buffer.chars().skip(1 + picker.query.len()).collect();
-                    *buffer = format!("/{}", after).into();
-                    *cursor = 1;
-                }
-                picker.deactivate();
-                (true, None)
-            }
-        }
-        KeyCode::Tab => {
-            if key
-                .modifiers
-                .contains(crossterm::event::KeyModifiers::SHIFT)
-            {
-                picker.select_prev();
-            } else {
-                picker.select_next();
-            }
-            (true, None)
-        }
-        KeyCode::Up => {
-            picker.select_prev();
-            (true, None)
-        }
-        KeyCode::Down => {
-            picker.select_next();
-            (true, None)
-        }
-        KeyCode::Enter => {
-            if let Some(cmd) = picker.selected_command() {
-                let selected = cmd.to_string();
-                let slash_pos = buffer.find('/').unwrap_or(0);
-                let before: String = buffer.chars().take(slash_pos).collect();
-                let after_offset = slash_pos + 1 + picker.query.len();
-                let after: String = buffer.chars().skip(after_offset).collect();
-                let insertion = if after.is_empty() || after.starts_with(' ') {
-                    format!("{} ", selected)
-                } else {
-                    format!("{}{}", selected, after)
-                };
-                *buffer = format!("{}{}", before, insertion).into();
-                *cursor = before.len() + selected.len() + 1;
-
-                if selected == "/prompt" && !prompt_names.is_empty() {
-                    picker.deactivate();
-                    let mut pp = PromptPicker::new();
-                    pp.set_items(prompt_names.to_vec());
-                    pp.activate();
-                    return (true, Some(Picker::Prompt(pp)));
-                }
-                if selected == "/models" && !quick_model_names.is_empty() {
-                    picker.deactivate();
-                    let mut mp = ModelsPicker::new();
-                    mp.set_items(quick_model_names.to_vec());
-                    mp.activate();
-                    return (true, Some(Picker::Models(mp)));
-                }
-                if selected == "/theme" && !theme_names.is_empty() {
-                    picker.deactivate();
-                    let mut tp = ThemePicker::new();
-                    tp.set_items(theme_names.to_vec());
-                    tp.activate();
-                    return (true, Some(Picker::Theme(tp)));
-                }
-            }
-            picker.deactivate();
-            (true, None)
-        }
-        KeyCode::Esc => {
-            let slash_pos = buffer.find('/').unwrap_or(0);
-            let before: String = buffer.chars().take(slash_pos).collect();
-            let after: String = buffer
-                .chars()
-                .skip(slash_pos + 1 + picker.query.len())
-                .collect();
-            *buffer = format!("{}/{}", before, after).into();
-            *cursor = slash_pos + 1;
-            picker.deactivate();
-            (true, None)
-        }
-        _ => (false, None),
-    }
-}
-
-fn handle_models_picker_key(
-    buffer: &mut CompactString,
-    cursor: &mut usize,
-    picker: &mut ModelsPicker,
-    key: KeyEvent,
-) -> bool {
-    match key.code {
-        KeyCode::Char(c)
-            if c == '\x08' || (c == 'h' && key.modifiers.contains(KeyModifiers::CONTROL)) =>
-        {
-            if picker.cursor > 0 {
-                picker.backspace();
-                *cursor = prev_char_boundary(buffer, *cursor);
-                buffer.remove(*cursor);
-            } else {
-                let prefix = "/models ";
-                let prefix_len = prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                if buffer.len() >= after_offset {
-                    let before: String = buffer.chars().take(prefix_len).collect();
-                    let after: String = buffer.chars().skip(after_offset).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = prefix_len;
-                }
-                picker.deactivate();
-            }
-            true
-        }
-        KeyCode::Char(c) => {
-            picker.char_input(c);
-            let insert_pos = "/models ".len() + picker.cursor.saturating_sub(1);
-            buffer.insert(insert_pos, c);
-            *cursor += c.len_utf8();
-            true
-        }
-        KeyCode::Backspace => {
-            if picker.cursor > 0 {
-                picker.backspace();
-                let prefix = "/models ";
-                let prefix_len = prefix.len();
-                let remove_pos = prefix_len + picker.cursor;
-                if remove_pos < buffer.len() {
-                    buffer.remove(remove_pos);
-                }
-                *cursor = prev_char_boundary(buffer, *cursor);
-                true
-            } else {
-                let prefix = "/models ";
-                let prefix_len = prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                if buffer.len() >= after_offset {
-                    let before: String = buffer.chars().take(prefix_len).collect();
-                    let after: String = buffer.chars().skip(after_offset).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = prefix_len;
-                }
-                picker.deactivate();
-                true
-            }
-        }
-        KeyCode::Tab => {
-            if key
-                .modifiers
-                .contains(crossterm::event::KeyModifiers::SHIFT)
-            {
-                picker.select_prev();
-            } else {
-                picker.select_next();
-            }
-            true
-        }
-        KeyCode::Up => {
-            picker.select_prev();
-            true
-        }
-        KeyCode::Down => {
-            picker.select_next();
-            true
-        }
-        KeyCode::Enter => {
-            if let Some(name) = picker.selected_name() {
-                let prefix = "/models ";
-                let prefix_len = prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                let before: String = buffer.chars().take(prefix_len).collect();
-                let after: String = buffer.chars().skip(after_offset).collect();
-                *buffer = format!("{}{}{}", before, name, after).into();
-                *cursor = prefix_len + name.len();
-            }
-            picker.deactivate();
-            true
-        }
-        KeyCode::Esc => {
-            let prefix = "/models ";
-            let prefix_len = prefix.len();
-            let after_offset = prefix_len + picker.query.len();
-            if buffer.len() >= after_offset {
-                let before: String = buffer.chars().take(prefix_len).collect();
-                let after: String = buffer.chars().skip(after_offset).collect();
-                *buffer = format!("{}{}", before, after).into();
-                *cursor = prefix_len;
-            }
-            picker.deactivate();
-            true
-        }
-        _ => false,
-    }
-}
-
-fn handle_theme_picker_key(
-    buffer: &mut CompactString,
-    cursor: &mut usize,
-    picker: &mut ThemePicker,
-    key: KeyEvent,
-) -> bool {
-    match key.code {
-        KeyCode::Char(c)
-            if c == '\x08' || (c == 'h' && key.modifiers.contains(KeyModifiers::CONTROL)) =>
-        {
-            if picker.cursor > 0 {
-                picker.backspace();
-                *cursor = prev_char_boundary(buffer, *cursor);
-                buffer.remove(*cursor);
-            } else {
-                let prefix = "/theme ";
-                let prefix_len = prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                if buffer.len() >= after_offset {
-                    let before: String = buffer.chars().take(prefix_len).collect();
-                    let after: String = buffer.chars().skip(after_offset).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = prefix_len;
-                }
-                picker.deactivate();
-            }
-            true
-        }
-        KeyCode::Char(c) => {
-            picker.char_input(c);
-            let insert_pos = "/theme ".len() + picker.cursor.saturating_sub(1);
-            buffer.insert(insert_pos, c);
-            *cursor += c.len_utf8();
-            true
-        }
-        KeyCode::Backspace => {
-            if picker.cursor > 0 {
-                picker.backspace();
-                let prefix = "/theme ";
-                let prefix_len = prefix.len();
-                let remove_pos = prefix_len + picker.cursor;
-                if remove_pos < buffer.len() {
-                    buffer.remove(remove_pos);
-                }
-                *cursor = prev_char_boundary(buffer, *cursor);
-                true
-            } else {
-                let prefix = "/theme ";
-                let prefix_len = prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                if buffer.len() >= after_offset {
-                    let before: String = buffer.chars().take(prefix_len).collect();
-                    let after: String = buffer.chars().skip(after_offset).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = prefix_len;
-                }
-                picker.deactivate();
-                true
-            }
-        }
-        KeyCode::Tab => {
-            if key
-                .modifiers
-                .contains(crossterm::event::KeyModifiers::SHIFT)
-            {
-                picker.select_prev();
-            } else {
-                picker.select_next();
-            }
-            true
-        }
-        KeyCode::Up => {
-            picker.select_prev();
-            true
-        }
-        KeyCode::Down => {
-            picker.select_next();
-            true
-        }
-        KeyCode::Enter => {
-            if let Some(name) = picker.selected_name() {
-                let prefix = "/theme ";
-                let prefix_len = prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                let before: String = buffer.chars().take(prefix_len).collect();
-                let after: String = buffer.chars().skip(after_offset).collect();
-                *buffer = format!("{}{}{}", before, name, after).into();
-                *cursor = prefix_len + name.len();
-            }
-            picker.deactivate();
-            true
-        }
-        KeyCode::Esc => {
-            let prefix = "/theme ";
-            let prefix_len = prefix.len();
-            let after_offset = prefix_len + picker.query.len();
-            if buffer.len() >= after_offset {
-                let before: String = buffer.chars().take(prefix_len).collect();
-                let after: String = buffer.chars().skip(after_offset).collect();
-                *buffer = format!("{}{}", before, after).into();
-                *cursor = prefix_len;
-            }
-            picker.deactivate();
-            true
-        }
-        _ => false,
-    }
-}
-
-fn handle_prompt_picker_key(
-    buffer: &mut CompactString,
-    cursor: &mut usize,
-    picker: &mut PromptPicker,
-    key: KeyEvent,
-) -> bool {
-    match key.code {
-        KeyCode::Char(c)
-            if c == '\x08' || (c == 'h' && key.modifiers.contains(KeyModifiers::CONTROL)) =>
-        {
-            if picker.cursor > 0 {
-                picker.backspace();
-                *cursor = prev_char_boundary(buffer, *cursor);
-                buffer.remove(*cursor);
-            } else {
-                let prompt_prefix = "/prompt ";
-                let prefix_len = prompt_prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                if buffer.len() >= after_offset {
-                    let before: String = buffer.chars().take(prefix_len).collect();
-                    let after: String = buffer.chars().skip(after_offset).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = prefix_len;
-                }
-                picker.deactivate();
-            }
-            true
-        }
-        KeyCode::Char(c) => {
-            picker.char_input(c);
-            let insert_pos = "/prompt ".len() + picker.cursor.saturating_sub(1);
-            buffer.insert(insert_pos, c);
-            *cursor += c.len_utf8();
-            true
-        }
-        KeyCode::Backspace => {
-            if picker.cursor > 0 {
-                picker.backspace();
-                let prompt_prefix = "/prompt ";
-                let prefix_len = prompt_prefix.len();
-                let remove_pos = prefix_len + picker.cursor;
-                if remove_pos < buffer.len() {
-                    buffer.remove(remove_pos);
-                }
-                *cursor = prev_char_boundary(buffer, *cursor);
-                true
-            } else {
-                let prompt_prefix = "/prompt ";
-                let prefix_len = prompt_prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                if buffer.len() >= after_offset {
-                    let before: String = buffer.chars().take(prefix_len).collect();
-                    let after: String = buffer.chars().skip(after_offset).collect();
-                    *buffer = format!("{}{}", before, after).into();
-                    *cursor = prefix_len;
-                }
-                picker.deactivate();
-                true
-            }
-        }
-        KeyCode::Tab => {
-            if key
-                .modifiers
-                .contains(crossterm::event::KeyModifiers::SHIFT)
-            {
-                picker.select_prev();
-            } else {
-                picker.select_next();
-            }
-            true
-        }
-        KeyCode::Up => {
-            picker.select_prev();
-            true
-        }
-        KeyCode::Down => {
-            picker.select_next();
-            true
-        }
-        KeyCode::Enter => {
-            if let Some(name) = picker.selected_name() {
-                let prompt_prefix = "/prompt ";
-                let prefix_len = prompt_prefix.len();
-                let after_offset = prefix_len + picker.query.len();
-                let before: String = buffer.chars().take(prefix_len).collect();
-                let after: String = buffer.chars().skip(after_offset).collect();
-                *buffer = format!("{}{}{}", before, name, after).into();
-                *cursor = prefix_len + name.len();
-            }
-            picker.deactivate();
-            true
-        }
-        KeyCode::Esc => {
-            let prompt_prefix = "/prompt ";
-            let prefix_len = prompt_prefix.len();
-            let after_offset = prefix_len + picker.query.len();
-            if buffer.len() >= after_offset {
-                let before: String = buffer.chars().take(prefix_len).collect();
-                let after: String = buffer.chars().skip(after_offset).collect();
-                *buffer = format!("{}{}", before, after).into();
-                *cursor = prefix_len;
-            }
-            picker.deactivate();
-            true
-        }
-        _ => false,
     }
 }

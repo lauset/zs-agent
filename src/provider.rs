@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use compact_str::CompactString;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use rig::agent::Agent;
 use rig::client::CompletionClient;
 use rig::completion::{CompletionModel, Message};

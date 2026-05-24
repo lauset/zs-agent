@@ -7,10 +7,10 @@ use crossterm::style::{
     Attribute, Color, ResetColor, SetAttribute, SetBackgroundColor, SetForegroundColor,
 };
 use crossterm::terminal::{Clear, ClearType, ScrollUp};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
 use super::markdown::word_wrap;
-use super::resolve_color;
+use super::utils::resolve_color;
 
 #[derive(Clone)]
 pub struct LineEntry {
@@ -703,7 +703,7 @@ pub fn copy_to_clipboard(text: &str) {
 /// Minimal base64 encoder — avoids pulling in a crate just for clipboard support.
 fn base64_encode(input: &[u8]) -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity((input.len() + 2) / 3 * 4);
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
     for chunk in input.chunks(3) {
         let b0 = chunk[0] as usize;
         let b1 = chunk.get(1).copied().unwrap_or(0) as usize;
@@ -711,8 +711,16 @@ fn base64_encode(input: &[u8]) -> String {
         let triple = (b0 << 16) | (b1 << 8) | b2;
         out.push(ALPHABET[(triple >> 18) & 63] as char);
         out.push(ALPHABET[(triple >> 12) & 63] as char);
-        out.push(if chunk.len() > 1 { ALPHABET[(triple >> 6) & 63] } else { b'=' } as char);
-        out.push(if chunk.len() > 2 { ALPHABET[triple & 63] } else { b'=' } as char);
+        out.push(if chunk.len() > 1 {
+            ALPHABET[(triple >> 6) & 63]
+        } else {
+            b'='
+        } as char);
+        out.push(if chunk.len() > 2 {
+            ALPHABET[triple & 63]
+        } else {
+            b'='
+        } as char);
     }
     out
 }

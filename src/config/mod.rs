@@ -1,53 +1,21 @@
+pub mod load;
+pub mod types;
+
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 
+pub use load::*;
+pub use types::*;
+
 use crate::permission::{PermissionConfig, PermissionConfigs};
-use crate::session::storage;
 
 #[cfg(feature = "mcp")]
 use crate::extras::mcp::config::McpServerConfig;
 
 #[cfg(feature = "acp")]
 use crate::extras::acp::config::AcpServerConfig;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QuickModelConfig {
-    pub provider: CompactString,
-    pub model: CompactString,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ApiStyle {
-    Responses,
-    Completions,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CustomProviderConfig {
-    pub provider_type: CompactString,
-    pub base_url: String,
-    pub api_key_env: Option<CompactString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub danger_accept_invalid_certs: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub api_style: Option<ApiStyle>,
-    #[serde(default, skip_serializing_if = "std::collections::HashMap::is_empty")]
-    pub headers: std::collections::HashMap<String, String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeout_secs: Option<u64>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ColorsConfig {
-    pub chat_background: Option<CompactString>,
-    pub input_background: Option<CompactString>,
-    pub status_background: Option<CompactString>,
-}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -77,7 +45,7 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compact_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub custom_providers: Option<HashMap<String, CustomProviderConfig>>,
+    pub custom_providers: Option<HashMap<String, types::CustomProviderConfig>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permission: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "permission-regex")]
@@ -112,13 +80,12 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub editor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub api_keys: Option<std::collections::HashMap<String, String>>,
+    pub api_keys: Option<HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub quick_models: Option<std::collections::HashMap<String, QuickModelConfig>>,
+    pub quick_models: Option<HashMap<String, types::QuickModelConfig>>,
     #[cfg(feature = "mcp")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mcp_servers: Option<HashMap<String, McpServerConfig>>,
-
     #[cfg(feature = "acp")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub acp_servers: Option<HashMap<String, AcpServerConfig>>,
@@ -129,11 +96,11 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub acp_port: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub colors: Option<ColorsConfig>,
+    pub colors: Option<types::ColorsConfig>,
 }
 
 impl Config {
-    pub fn custom_providers_map(&self) -> HashMap<String, CustomProviderConfig> {
+    pub fn custom_providers_map(&self) -> HashMap<String, types::CustomProviderConfig> {
         self.custom_providers.clone().unwrap_or_default()
     }
 
@@ -180,155 +147,4 @@ impl Config {
 
         perm_configs
     }
-}
-
-fn resolve_config_path() -> PathBuf {
-    // ZS_CONFIG_DIR env var takes highest priority
-    if let Some(dir) = std::env::var_os("ZS_CONFIG_DIR") {
-        let dir = PathBuf::from(dir);
-        let toml = dir.join("config.toml");
-        let json = dir.join("config.json");
-        if toml.exists() {
-            return toml;
-        }
-        if json.exists() {
-            return json;
-        }
-        return toml;
-    }
-
-    // XDG config dir (~/.config/zerostack on Linux) takes second priority
-    if let Some(config_dir) = dirs::config_dir() {
-        let dir = config_dir.join("zerostack");
-        let toml = dir.join("config.toml");
-        let json = dir.join("config.json");
-        if toml.exists() {
-            return toml;
-        }
-        if json.exists() {
-            return json;
-        }
-    }
-
-    // Data dir (~/.local/share/zerostack) is the final fallback
-    let dir = storage::data_dir();
-    let toml = dir.join("config.toml");
-    let json = dir.join("config.json");
-    if toml.exists() {
-        toml
-    } else if json.exists() {
-        json
-    } else {
-        toml
-    }
-}
-
-pub fn config_file_path() -> PathBuf {
-    resolve_config_path()
-}
-
-pub fn quick_models_map(cfg: &Config) -> HashMap<String, QuickModelConfig> {
-    cfg.quick_models.clone().unwrap_or_default()
-}
-
-pub fn save_quick_model(name: &str, provider: &str, model: &str) -> std::io::Result<()> {
-    let path = resolve_config_path();
-    let mut cfg: Config = if path.exists() {
-        let content = std::fs::read_to_string(&path).unwrap_or_default();
-        match path.extension().and_then(|e| e.to_str()) {
-            Some("toml") => toml::from_str(&content).unwrap_or_default(),
-            _ => serde_json::from_str(&content).unwrap_or_default(),
-        }
-    } else {
-        Config::default()
-    };
-
-    let quick_models = cfg.quick_models.get_or_insert_with(HashMap::new);
-    quick_models.insert(
-        name.to_string(),
-        QuickModelConfig {
-            provider: CompactString::new(provider),
-            model: CompactString::new(model),
-        },
-    );
-
-    let parent = path.parent().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid config path")
-    })?;
-    std::fs::create_dir_all(parent)?;
-    match path.extension().and_then(|e| e.to_str()) {
-        Some("toml") => {
-            let content = toml::to_string(&cfg)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-            std::fs::write(&path, content)?;
-        }
-        _ => std::fs::write(&path, serde_json::to_string_pretty(&cfg)?)?,
-    }
-    Ok(())
-}
-
-pub fn load() -> Config {
-    let path = resolve_config_path();
-    #[allow(unused_mut)]
-    let mut cfg: Config = if !path.exists() {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).ok();
-        }
-        let default = Config::default();
-        if path.extension().and_then(|e| e.to_str()) == Some("toml")
-            && let Ok(content) = toml::to_string(&default)
-        {
-            std::fs::write(&path, content).ok();
-        }
-        default
-    } else {
-        let content = std::fs::read_to_string(&path).unwrap_or_else(|e| {
-            eprintln!(
-                "error: failed to read config file ({}): {}\n\
-                 Fix the file or remove it to use defaults.",
-                path.display(),
-                e,
-            );
-            std::process::exit(1);
-        });
-        match path.extension().and_then(|e| e.to_str()) {
-            Some("toml") => toml::from_str(&content).unwrap_or_else(|e| {
-                eprintln!(
-                    "error: {} is not a valid config: {}\n\
-                     Fix the file or remove it to use defaults.",
-                    path.display(),
-                    e,
-                );
-                std::process::exit(1);
-            }),
-            _ => serde_json::from_str(&content).unwrap_or_else(|e| {
-                eprintln!(
-                    "error: {} is not a valid config: {}\n\
-                     Fix the file or remove it to use defaults.",
-                    path.display(),
-                    e,
-                );
-                std::process::exit(1);
-            }),
-        }
-    };
-
-    #[cfg(feature = "mcp")]
-    if cfg.mcp_servers.is_none() {
-        let mut headers = HashMap::new();
-        if let Ok(key) = std::env::var("EXA_API_KEY") {
-            headers.insert("x-api-key".to_string(), key);
-        }
-        let mut defaults = HashMap::new();
-        defaults.insert(
-            "Exa Web Search".to_string(),
-            McpServerConfig::Url {
-                url: "https://mcp.exa.ai/mcp".to_string(),
-                headers,
-            },
-        );
-        cfg.mcp_servers = Some(defaults);
-    }
-
-    cfg
 }

@@ -141,10 +141,7 @@ pub struct Cli {
     pub worktree: Option<String>,
 
     #[cfg(feature = "git-worktree")]
-    #[arg(
-        long = "wt-auto-merge",
-        help = "Auto-merge worktree branch on exit"
-    )]
+    #[arg(long = "wt-auto-merge", help = "Auto-merge worktree branch on exit")]
     pub wt_auto_merge: bool,
 
     #[cfg(feature = "git-worktree")]

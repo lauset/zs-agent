@@ -13,7 +13,10 @@ pub struct McpClientHandle {
 }
 
 impl McpClientHandle {
-    pub async fn connect(server_name: CompactString, config: &McpServerConfig) -> anyhow::Result<Self> {
+    pub async fn connect(
+        server_name: CompactString,
+        config: &McpServerConfig,
+    ) -> anyhow::Result<Self> {
         match config {
             McpServerConfig::Command { command, args, env } => {
                 let mut cmd = Command::new(command);
