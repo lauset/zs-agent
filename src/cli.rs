@@ -197,7 +197,12 @@ impl Cli {
             .as_deref()
             .or(cfg.model.as_deref())
             .map(CompactString::new)
-            .unwrap_or_else(|| CompactString::new("deepseek/deepseek-v4-flash"))
+            .unwrap_or_else(|| {
+                let qm = config::quick_models_map(cfg);
+                qm.get("deepseek-v4-flash")
+                    .map(|q| q.model.clone())
+                    .unwrap_or_else(|| CompactString::new("deepseek/deepseek-v4-flash"))
+            })
     }
 
     pub fn resolve_provider(&self, cfg: &config::Config) -> CompactString {
@@ -205,7 +210,12 @@ impl Cli {
             .as_deref()
             .or(cfg.provider.as_deref())
             .map(CompactString::new)
-            .unwrap_or_else(|| CompactString::new("openrouter"))
+            .unwrap_or_else(|| {
+                let qm = config::quick_models_map(cfg);
+                qm.get("deepseek-v4-flash")
+                    .map(|q| q.provider.clone())
+                    .unwrap_or_else(|| CompactString::new("openrouter"))
+            })
     }
 
     pub fn resolve_max_tokens(&self, cfg: &config::Config) -> u64 {

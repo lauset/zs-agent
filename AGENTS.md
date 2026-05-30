@@ -3,3 +3,6 @@ When compiling zerostack:
 - Always run `cargo fmt`
 - Always run `cargo install --path .`
 - Run `cargo test` if you want to check all unit tests
+
+Always write tests when writing new non-TUI code.
+Always update docs/ files when needed.

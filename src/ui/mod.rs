@@ -22,6 +22,7 @@ use crossterm::style::Color;
 use tokio::sync::mpsc;
 
 use crate::cli::Cli;
+use crate::config;
 use crate::config::Config;
 use crate::context::ContextFiles;
 use crate::event::{AgentEvent, UserEvent};
@@ -201,12 +202,7 @@ pub async fn run_interactive(
     if let Some(editor) = &cfg.editor {
         input.set_editor(editor.clone());
     }
-    input.set_quick_model_names(
-        cfg.quick_models
-            .as_ref()
-            .map(|m| m.keys().cloned().collect())
-            .unwrap_or_default(),
-    );
+    input.set_quick_model_names(config::quick_models_map(cfg).into_keys().collect());
     input.load_global_history();
     let mut is_running = false;
     let mut agent_rx: Option<mpsc::Receiver<AgentEvent>> = None;

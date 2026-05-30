@@ -128,7 +128,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Custom provider model override (if no explicit model set)
     if let Some(custom) = cfg.custom_providers_map().get(provider.as_str())
-        && (model.as_str() == "deepseek/deepseek-v4-flash" || cli.model.is_none())
+        && cli.model.is_none()
+        && cfg.model.is_none()
         && let Some(ref custom_model) = custom.model
     {
         model = custom_model.clone();

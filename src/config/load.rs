@@ -126,6 +126,14 @@ pub fn save_quick_model(
     Ok(())
 }
 
+fn rich_default_config() -> Config {
+    let mut cfg = Config::default();
+    cfg.quick_models = Some(default_quick_models());
+    cfg.max_tokens = Some(8192);
+    cfg.context_window = Some(128_000);
+    cfg
+}
+
 pub fn load() -> Config {
     let path = resolve_config_path();
     #[allow(unused_mut)]
@@ -133,7 +141,7 @@ pub fn load() -> Config {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).ok();
         }
-        let default = Config::default();
+        let default = rich_default_config();
         if path.extension().and_then(|e| e.to_str()) == Some("toml")
             && let Ok(content) = toml::to_string(&default)
         {
