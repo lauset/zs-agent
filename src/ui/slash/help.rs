@@ -124,6 +124,21 @@ pub fn handle(_parts: &[&str], ctx: &mut SlashCtx<'_>) {
     write_result(ctx.renderer, "  /quit [/exit]          exit zerostack");
     write_result(ctx.renderer, "  /help                  show this message");
     write_result(ctx.renderer, "");
+    #[cfg(feature = "subagents")]
+    {
+        write_result(
+            ctx.renderer,
+            "  /model-subagent [name] show or switch subagent model",
+        );
+        write_result(
+            ctx.renderer,
+            "  /models-subagent       list quick models for subagent",
+        );
+        write_result(
+            ctx.renderer,
+            "  /models-subagent <n>   switch subagent to a quick model",
+        );
+    }
     write_ok(ctx.renderer, "keys:");
     write_result(ctx.renderer, "  PgUp/PgDn             scroll chat history");
     write_result(ctx.renderer, "  Home/End               jump to top/bottom");

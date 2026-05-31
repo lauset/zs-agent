@@ -22,6 +22,7 @@ mcp = [
 ]
 acp = ["dep:agent-client-protocol"]
 memory = []
+subagents = []
 
 [dependencies]
 rig = { version = "0.37", features = ["rmcp"] }

@@ -104,6 +104,18 @@ pub struct Config {
     pub acp_port: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edit_system: Option<types::EditSystem>,
+    #[cfg(feature = "subagents")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_max_turns: Option<usize>,
+    #[cfg(feature = "subagents")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_enabled: Option<bool>,
+    #[cfg(feature = "subagents")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subagent_model: Option<CompactString>,
+    #[cfg(feature = "subagents")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subagent_provider: Option<CompactString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub colors: Option<types::ColorsConfig>,
 }

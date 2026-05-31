@@ -12,3 +12,6 @@ pub mod acp;
 
 #[cfg(feature = "memory")]
 pub mod memory;
+
+#[cfg(feature = "subagents")]
+pub mod subagents;

@@ -191,3 +191,46 @@ where
     println!();
     Ok(full_response)
 }
+
+/// Run an agent silently (no stdout/stderr printing), collecting the full
+/// response text. Used by subagent tasks.
+#[cfg(feature = "subagents")]
+pub async fn run_subagent<M, P>(
+    agent: &Agent<M, P>,
+    prompt: &str,
+    max_turns: usize,
+) -> anyhow::Result<String>
+where
+    M: CompletionModel + 'static,
+    M::StreamingResponse: Send + Sync + Unpin + Clone + 'static,
+    P: rig::agent::PromptHook<M> + 'static,
+{
+    let mut stream = agent
+        .stream_chat(prompt.to_string(), Vec::<Message>::new())
+        .multi_turn(max_turns)
+        .await;
+
+    let mut full_response = String::new();
+
+    while let Some(item) = stream.next().await {
+        match item {
+            Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Text(text))) => {
+                full_response.push_str(&text.text);
+            }
+            Ok(MultiTurnStreamItem::FinalResponse(res)) => {
+                full_response = res.response().to_string();
+                break;
+            }
+            Ok(_) => {}
+            Err(e) => {
+                return Err(anyhow::anyhow!("subagent error: {}", e));
+            }
+        }
+    }
+
+    if full_response.is_empty() {
+        anyhow::bail!("subagent returned empty response");
+    }
+
+    Ok(full_response)
+}

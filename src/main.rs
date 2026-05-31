@@ -199,6 +199,48 @@ async fn main() -> anyhow::Result<()> {
         cfg.api_keys.as_ref(),
     )?;
 
+    #[cfg(feature = "subagents")]
+    {
+        let task_max_turns = cfg.task_max_turns.unwrap_or(15);
+        let qm = config::quick_models_map(&cfg);
+
+        // Resolve subagent model: subagent_model config > subagent_provider + model > deepseek-v4-flash quick model
+        let (sub_provider, sub_model) = if let Some(sa_model) = &cfg.subagent_model {
+            if let Some(q) = qm.get(sa_model.as_str()) {
+                (q.provider.clone(), q.model.clone())
+            } else {
+                let prov = cfg
+                    .subagent_provider
+                    .clone()
+                    .unwrap_or_else(|| provider.clone());
+                (prov, sa_model.clone())
+            }
+        } else if let Some(sa_prov) = &cfg.subagent_provider {
+            (sa_prov.clone(), model.clone())
+        } else if let Some(dsv4) = qm.get("deepseek-v4-flash") {
+            (dsv4.provider.clone(), dsv4.model.clone())
+        } else {
+            (provider.clone(), model.clone())
+        };
+
+        let sub_client = if sub_provider.as_str() == provider {
+            client.clone()
+        } else {
+            crate::provider::create_client(
+                &sub_provider,
+                cli.api_key.as_deref(),
+                &cfg.custom_providers_map(),
+                cfg.api_keys.as_ref(),
+            )?
+        };
+
+        crate::extras::subagents::init(
+            sub_client,
+            sub_model.to_string(),
+            task_max_turns,
+        );
+    }
+
     #[cfg(feature = "acp")]
     if cli.acp_enabled {
         return extras::acp::serve(cli, cfg, context).await;

@@ -97,6 +97,27 @@ pub enum OpenAiModel {
     Completions(openai::completion::CompletionModel),
 }
 
+impl Clone for OpenAiClient {
+    fn clone(&self) -> Self {
+        match self {
+            OpenAiClient::Responses(c) => OpenAiClient::Responses(c.clone()),
+            OpenAiClient::Completions(c) => OpenAiClient::Completions(c.clone()),
+        }
+    }
+}
+
+impl Clone for AnyClient {
+    fn clone(&self) -> Self {
+        match self {
+            AnyClient::OpenRouter(c) => AnyClient::OpenRouter(c.clone()),
+            AnyClient::OpenAI(c) => AnyClient::OpenAI(c.clone()),
+            AnyClient::Anthropic(c) => AnyClient::Anthropic(c.clone()),
+            AnyClient::Gemini(c) => AnyClient::Gemini(c.clone()),
+            AnyClient::Ollama(c) => AnyClient::Ollama(c.clone()),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum OpenAiAgent {
     Responses(Agent<openai::responses_api::ResponsesCompletionModel>),
@@ -112,6 +133,17 @@ pub enum AnyClient {
 }
 
 impl AnyClient {
+    #[allow(dead_code)]
+    pub fn provider_name(&self) -> &'static str {
+        match self {
+            AnyClient::OpenRouter(_) => "openrouter",
+            AnyClient::OpenAI(_) => "openai",
+            AnyClient::Anthropic(_) => "anthropic",
+            AnyClient::Gemini(_) => "gemini",
+            AnyClient::Ollama(_) => "ollama",
+        }
+    }
+
     pub fn completion_model(&self, name: impl Into<String>) -> AnyModel {
         let name = name.into();
         match self {
@@ -241,6 +273,20 @@ impl AnyAgent {
             AnyAgent::Anthropic(a) => runner::run_print(a, prompt, max_turns).await,
             AnyAgent::Gemini(a) => runner::run_print(a, prompt, max_turns).await,
             AnyAgent::Ollama(a) => runner::run_print(a, prompt, max_turns).await,
+        }
+    }
+
+    #[cfg(feature = "subagents")]
+    pub async fn run_subagent(&self, prompt: &str, max_turns: usize) -> anyhow::Result<String> {
+        match self {
+            AnyAgent::OpenRouter(a) => runner::run_subagent(a, prompt, max_turns).await,
+            AnyAgent::OpenAI(a) => match a {
+                OpenAiAgent::Responses(a) => runner::run_subagent(a, prompt, max_turns).await,
+                OpenAiAgent::Completions(a) => runner::run_subagent(a, prompt, max_turns).await,
+            },
+            AnyAgent::Anthropic(a) => runner::run_subagent(a, prompt, max_turns).await,
+            AnyAgent::Gemini(a) => runner::run_subagent(a, prompt, max_turns).await,
+            AnyAgent::Ollama(a) => runner::run_subagent(a, prompt, max_turns).await,
         }
     }
 

@@ -7,6 +7,10 @@ pub async fn handle(parts: &[&str], ctx: &mut SlashCtx<'_>) -> anyhow::Result<()
         "/model" => handle_model(parts, ctx).await,
         "/models" => handle_models(parts, ctx).await,
         "/models-add" => handle_models_add(parts, ctx).await,
+        #[cfg(feature = "subagents")]
+        "/model-subagent" => handle_model_subagent(parts, ctx).await,
+        #[cfg(feature = "subagents")]
+        "/models-subagent" => handle_models_subagent(parts, ctx).await,
         _ => Ok(()),
     }
 }
@@ -188,5 +192,121 @@ async fn handle_models_add(parts: &[&str], ctx: &mut SlashCtx<'_>) -> anyhow::Re
             write_error(ctx.renderer, format!("failed to save quick model: {}", e));
         }
     }
+    Ok(())
+}
+
+#[cfg(feature = "subagents")]
+async fn handle_model_subagent(parts: &[&str], ctx: &mut SlashCtx<'_>) -> anyhow::Result<()> {
+    use crate::extras::subagents;
+
+    if parts.len() < 2 {
+        let (provider_name, model_name) = subagents::with_config(|cfg| {
+            (cfg.client.provider_name(), cfg.model_name.clone())
+        });
+        write_ok(
+            ctx.renderer,
+            format!("current subagent model: {} / {}", provider_name, model_name),
+        );
+        return Ok(());
+    }
+
+    let new_model = parts[1].trim().to_string();
+    let model = ctx.client.completion_model(new_model.clone());
+    model_for_subagent(ctx, model).await?;
+    subagents::set_model_name(new_model.clone());
+    write_ok(
+        ctx.renderer,
+        format!("switched subagent to model: {}", new_model),
+    );
+    Ok(())
+}
+
+#[cfg(feature = "subagents")]
+async fn handle_models_subagent(parts: &[&str], ctx: &mut SlashCtx<'_>) -> anyhow::Result<()> {
+    use crate::extras::subagents;
+
+    let qm = config::quick_models_map(ctx.cfg);
+    let mut sorted: Vec<&String> = qm.keys().collect();
+    sorted.sort();
+
+    if parts.len() < 2 {
+        let (provider_name, model_name) = subagents::with_config(|cfg| {
+            (cfg.client.provider_name(), cfg.model_name.clone())
+        });
+        if sorted.is_empty() {
+            write_ok(
+                ctx.renderer,
+                format!(
+                    "current subagent: {} / {} (no quick models defined)",
+                    provider_name, model_name
+                ),
+            );
+        } else {
+            write_ok(
+                ctx.renderer,
+                format!(
+                    "quick models (current subagent: {} | {}):",
+                    provider_name, model_name
+                ),
+            );
+            for name in &sorted {
+                let q = &qm[name.as_str()];
+                write_result(
+                    ctx.renderer,
+                    format!(
+                        "  {}  ({} / {})  ${:.4}/M in  ${:.4}/M out",
+                        name, q.provider, q.model, q.input_token_cost, q.output_token_cost
+                    ),
+                );
+            }
+        }
+        return Ok(());
+    }
+
+    let name = parts[1].trim();
+    if let Some(q) = qm.get(name) {
+        if q.provider.as_str() != ctx.client.provider_name() {
+            let new_client = crate::provider::create_client(
+                &q.provider,
+                ctx.cli.api_key.as_deref(),
+                &ctx.cfg.custom_providers_map(),
+                ctx.cfg.api_keys.as_ref(),
+            )?;
+            let model = new_client.completion_model(q.model.to_string());
+            model_for_subagent(ctx, model).await?;
+            subagents::set_client_and_model(new_client, q.model.to_string());
+        } else {
+            let model = ctx.client.completion_model(q.model.to_string());
+            model_for_subagent(ctx, model).await?;
+            subagents::set_model_name(q.model.to_string());
+        }
+        write_ok(
+            ctx.renderer,
+            format!(
+                "switched subagent to quick model: {} ({} / {})  ${:.4}/M in  ${:.4}/M out",
+                name, q.provider, q.model, q.input_token_cost, q.output_token_cost
+            ),
+        );
+    } else {
+        write_error(ctx.renderer, format!("unknown quick model: '{}'", name));
+        if !sorted.is_empty() {
+            write_ok(ctx.renderer, "available quick models:");
+            for n in &sorted {
+                write_result(ctx.renderer, format!("  {}", n));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validate a model handle by trying to build a subagent with it.
+/// If it fails, the error is shown but does not abort the command.
+#[cfg(feature = "subagents")]
+async fn model_for_subagent(
+    ctx: &mut SlashCtx<'_>,
+    model: crate::provider::AnyModel,
+) -> anyhow::Result<()> {
+    let max_turns = ctx.cfg.task_max_turns.unwrap_or(15);
+    let _agent = crate::extras::subagents::builder::build_explore_agent(model, max_turns).await;
     Ok(())
 }

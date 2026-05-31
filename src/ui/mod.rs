@@ -260,11 +260,14 @@ pub async fn run_interactive(
         renderer.write_line("  Slash Commands:", C_TOOL)?;
         renderer.write_line("    /model        Switch model", Color::White)?;
         renderer.write_line("    /prompt       List / activate prompts", Color::White)?;
+        renderer.write_line("    /prompt autoconfig  Guided setup via docs", Color::White)?;
         renderer.write_line("    /mode         Change security mode", Color::White)?;
         renderer.write_line("    /clear        Clear session", Color::White)?;
         renderer.write_line("    /undo         Undo last exchange", Color::White)?;
         renderer.write_line("    /compress     Free context window space", Color::White)?;
         renderer.write_line("    /help         Show all commands", Color::White)?;
+        renderer.write_line("", Color::White)?;
+        renderer.write_line("  Docs: https://gi-dellav.github.io/zerostack/", Color::White)?;
         renderer.write_line("", Color::White)?;
         renderer.write_line("  Keybindings:", C_TOOL)?;
         renderer.write_line("    Ctrl+G     Open input in $EDITOR", Color::White)?;
