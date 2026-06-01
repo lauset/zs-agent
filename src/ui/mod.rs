@@ -1,4 +1,4 @@
-mod cmd_picker;
+pub(crate) mod cmd_picker;
 mod event_handler;
 pub(crate) mod events;
 pub(crate) mod input;

@@ -112,9 +112,7 @@ impl InputEditor {
     pub fn start_models_picker(&mut self) {
         let mut picker = ModelsPicker::new();
         picker.set_monochrome(self.monochrome);
-        if !self.quick_model_names.is_empty() {
-            picker.set_items(self.quick_model_names.clone());
-        }
+        picker.set_groups(self.quick_model_names.clone(), self.live_model_names.clone());
         picker.activate();
         self.picker = Some(Picker::Models(picker));
     }
@@ -161,6 +159,7 @@ impl InputEditor {
                     &self.prompt_names,
                     &self.theme_names,
                     &self.quick_model_names,
+                    &self.live_model_names,
                     p,
                     key,
                 );
