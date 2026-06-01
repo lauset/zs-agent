@@ -123,13 +123,13 @@ impl Mem {
         }
     }
 
-    fn memory_md(&self) -> PathBuf {
+    pub(crate) fn memory_md(&self) -> PathBuf {
         self.root.join("MEMORY.md") // global, shared across projects
     }
     fn project_dir(&self) -> PathBuf {
         self.root.join("projects").join(&self.project)
     }
-    fn scratchpad(&self) -> PathBuf {
+    pub(crate) fn scratchpad(&self) -> PathBuf {
         self.project_dir().join("SCRATCHPAD.md")
     }
     fn daily_dir(&self) -> PathBuf {
@@ -138,12 +138,12 @@ impl Mem {
     fn notes_dir(&self) -> PathBuf {
         self.project_dir().join("notes")
     }
-    fn daily_file(&self, date: &str) -> PathBuf {
+    pub(crate) fn daily_file(&self, date: &str) -> PathBuf {
         self.daily_dir().join(format!("{date}.md"))
     }
 
     /// Sanitize a note name so it can never escape `notes/` (no traversal).
-    fn note_path(&self, name: &str) -> Option<PathBuf> {
+    pub(crate) fn note_path(&self, name: &str) -> Option<PathBuf> {
         let stem = name.trim().trim_end_matches(".md");
         if stem.is_empty() || stem.contains(['/', '\\', '.']) {
             return None;
