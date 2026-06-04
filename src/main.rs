@@ -343,37 +343,70 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Default prompt resolution (after prompts may have been regenerated)
-    let default_prompt = cfg.default_prompt.as_deref().unwrap_or("code");
-    let default_prompt_mode: Option<&str> = if let Some(content) =
-        context.prompts.get(default_prompt)
     {
-        let (mode_directive, clean_content) = crate::permission::parse_prompt_mode(content);
-        let mut prompt_text = if mode_directive.is_some() {
-            clean_content.to_string()
-        } else {
-            content.clone()
-        };
+        let default_prompt = cfg.default_prompt.as_deref().unwrap_or("code");
+        if let Some(content) = context.prompts.get(default_prompt) {
+            let (mode_directive, clean_content) = crate::permission::parse_prompt_mode(content);
+            let mut prompt_text = if mode_directive.is_some() {
+                clean_content.to_string()
+            } else {
+                content.clone()
+            };
 
-        // Append available capabilities based on enabled features
-        let caps: Vec<&str> = vec![
+            #[allow(unused_mut)]
+            let mut caps: Vec<&str> = Vec::new();
             #[cfg(feature = "memory")]
-            "- **Memory**: persistent memory across sessions (memory_read, memory_write, memory_search)",
+                caps.push("- **Memory**: persistent memory across sessions (memory_read, memory_write, memory_search)");
             #[cfg(feature = "subagents")]
-            "- **Subagents**: delegate specific multi-step investigations to parallel subagents via the `task` tool",
-        ];
+                caps.push("- **Subagents**: delegate specific multi-step investigations to parallel subagents via the `task` tool");
 
-        if !caps.is_empty() {
-            prompt_text.push_str("\n\n## Available Capabilities\n\n");
-            prompt_text.push_str(&caps.join("\n"));
-            prompt_text.push('\n');
+            if !caps.is_empty() {
+                prompt_text.push_str("\n\n## Available Capabilities\n\n");
+                prompt_text.push_str(&caps.join("\n"));
+                prompt_text.push('\n');
+            }
+
+            context.current_prompt = Some(prompt_text);
+            context.current_prompt_name = Some(default_prompt.to_string());
         }
+    }
 
-        context.current_prompt = Some(prompt_text);
-        context.current_prompt_name = Some(default_prompt.to_string());
-        mode_directive
-    } else {
-        None
-    };
+    // --load-prompt overrides the default prompt
+    if let Some(ref name) = cli.load_prompt {
+        if let Some(content) = context.prompts.get(name) {
+            let (mode_directive, clean_content) = crate::permission::parse_prompt_mode(content);
+            let mut prompt_text = if mode_directive.is_some() {
+                clean_content.to_string()
+            } else {
+                content.clone()
+            };
+
+            #[allow(unused_mut)]
+            let mut caps: Vec<&str> = Vec::new();
+            #[cfg(feature = "memory")]
+                caps.push("- **Memory**: persistent memory across sessions (memory_read, memory_write, memory_search)");
+            #[cfg(feature = "subagents")]
+                caps.push("- **Subagents**: delegate specific multi-step investigations to parallel subagents via the `task` tool");
+
+            if !caps.is_empty() {
+                prompt_text.push_str("\n\n## Available Capabilities\n\n");
+                prompt_text.push_str(&caps.join("\n"));
+                prompt_text.push('\n');
+            }
+
+            context.current_prompt = Some(prompt_text);
+            context.current_prompt_name = Some(name.clone());
+        } else {
+            let mut sorted: Vec<&String> = context.prompts.keys().collect();
+            sorted.sort();
+            eprintln!("error: unknown prompt '{}'", name);
+            eprintln!("available prompts:");
+            for p in &sorted {
+                eprintln!("  {}", p);
+            }
+            anyhow::bail!("unknown prompt '{}'", name);
+        }
+    }
 
     // Apply mode from prompt %%mode= directive (if any)
     if let Some(perm) = &permission {
@@ -384,11 +417,14 @@ async fn main() -> anyhow::Result<()> {
             .collect();
         let mut guard = perm.lock().unwrap_or_else(|e| e.into_inner());
         guard.load_session_allowlist(&allowlist);
-        if let Some(mode_str) = default_prompt_mode
-            && mode_str != "last_user_mode"
-            && let Some(mode) = SecurityMode::from_str(mode_str)
-        {
-            guard.set_prompt_mode(mode);
+        if let Some(current_prompt) = &context.current_prompt {
+            let (mode_directive, _) = crate::permission::parse_prompt_mode(current_prompt);
+            if let Some(mode_str) = mode_directive
+                && mode_str != "last_user_mode"
+                && let Some(mode) = SecurityMode::from_str(mode_str)
+            {
+                guard.set_prompt_mode(mode);
+            }
         }
     }
 
@@ -465,7 +501,7 @@ async fn main() -> anyhow::Result<()> {
             )
             .await;
             let response = agent
-                .run_print(&msg, cli.resolve_max_agent_turns(&cfg))
+                .run_print(&msg, cli.resolve_max_agent_turns(&cfg), cli.pure_stdout)
                 .await?;
             if !cli.no_session {
                 session.add_message(MessageRole::User, &msg);
@@ -706,7 +742,7 @@ async fn run_headless_loop(
         eprintln!();
 
         let response = match agent
-            .run_print(&iteration_prompt, cli.resolve_max_agent_turns(cfg))
+            .run_print(&iteration_prompt, cli.resolve_max_agent_turns(cfg), false)
             .await
         {
             Ok(r) => r,

@@ -10,6 +10,15 @@ pub struct Cli {
     #[arg(short = 'p', long = "print", help = "Print response and exit")]
     pub print: bool,
 
+    #[arg(
+        long = "pure-stdout",
+        help = "With -p: also print tool calls/results to stdout"
+    )]
+    pub pure_stdout: bool,
+
+    #[arg(long = "load-prompt", help = "Load a named prompt (same as /prompt)")]
+    pub load_prompt: Option<String>,
+
     #[arg(long = "print-config", help = "Print resolved configuration and exit")]
     pub print_config: bool,
 

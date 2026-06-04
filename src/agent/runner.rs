@@ -267,6 +267,7 @@ pub async fn run_print<M, P>(
     agent: &Agent<M, P>,
     prompt: &str,
     max_turns: usize,
+    pure_stdout: bool,
 ) -> anyhow::Result<String>
 where
     M: CompletionModel + 'static,
@@ -279,6 +280,7 @@ where
         .await;
 
     let mut full_response = String::new();
+    let mut last_tool_name: Option<String> = None;
 
     while let Some(item) = stream.next().await {
         match item {
@@ -293,6 +295,43 @@ where
                 eprint!("{}", r.display_text());
                 let _ = std::io::Write::flush(&mut std::io::stderr());
             }
+            Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::ToolCall {
+                tool_call,
+                ..
+            })) if pure_stdout => {
+                let name = &tool_call.function.name;
+                last_tool_name = Some(name.clone());
+                let summary = format_tool_args_summary(&tool_call.function.arguments);
+                println!("\n◈ {} {}", name, summary);
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+            }
+            Ok(MultiTurnStreamItem::StreamUserItem(StreamedUserContent::ToolResult {
+                tool_result,
+                ..
+            })) if pure_stdout => {
+                let name = last_tool_name.take().unwrap_or_default();
+                let mut output = String::new();
+                for c in tool_result.content.iter() {
+                    if let ToolResultContent::Text(t) = c {
+                        if !output.is_empty() {
+                            output.push('\n');
+                        }
+                        output.push_str(&t.text);
+                    }
+                }
+                if !output.is_empty() {
+                    println!("◈ {} result:", name);
+                    let lines: Vec<&str> = output.lines().collect();
+                    if lines.len() > 40 {
+                        let truncated: Vec<&str> = lines.iter().take(40).copied().collect();
+                        println!("{}", truncated.join("\n"));
+                        println!("(truncated {} more lines)", lines.len().saturating_sub(40));
+                    } else {
+                        println!("{}", output);
+                    }
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                }
+            }
             Ok(MultiTurnStreamItem::FinalResponse(_)) => break,
             Ok(_) => {}
             Err(e) => {
@@ -304,6 +343,40 @@ where
 
     println!();
     Ok(full_response)
+}
+
+fn format_tool_args_summary(args_json: &serde_json::Value) -> String {
+    match args_json {
+        serde_json::Value::Object(obj) => {
+            let first_key = [
+                "path",
+                "file_path",
+                "pattern",
+                "command",
+                "description",
+                "content",
+                "name",
+                "question",
+                "prompt",
+            ];
+            for key in &first_key {
+                if let Some(val) = obj.get(*key) {
+                    let s = match val {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    let truncated: String = if s.len() > 120 {
+                        format!("{}...", &s[..117])
+                    } else {
+                        s
+                    };
+                    return format!("{}", truncated);
+                }
+            }
+            String::new()
+        }
+        _ => format!("{}", args_json),
+    }
 }
 
 /// Run an agent silently (no stdout/stderr printing), collecting the full

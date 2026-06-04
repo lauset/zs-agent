@@ -418,16 +418,25 @@ pub enum AnyAgent {
 }
 
 impl AnyAgent {
-    pub async fn run_print(&self, prompt: &str, max_turns: usize) -> anyhow::Result<String> {
+    pub async fn run_print(
+        &self,
+        prompt: &str,
+        max_turns: usize,
+        pure_stdout: bool,
+    ) -> anyhow::Result<String> {
         match self {
-            AnyAgent::OpenRouter(a) => runner::run_print(a, prompt, max_turns).await,
+            AnyAgent::OpenRouter(a) => runner::run_print(a, prompt, max_turns, pure_stdout).await,
             AnyAgent::OpenAI(a) => match a {
-                OpenAiAgent::Responses(a) => runner::run_print(a, prompt, max_turns).await,
-                OpenAiAgent::Completions(a) => runner::run_print(a, prompt, max_turns).await,
+                OpenAiAgent::Responses(a) => {
+                    runner::run_print(a, prompt, max_turns, pure_stdout).await
+                }
+                OpenAiAgent::Completions(a) => {
+                    runner::run_print(a, prompt, max_turns, pure_stdout).await
+                }
             },
-            AnyAgent::Anthropic(a) => runner::run_print(a, prompt, max_turns).await,
-            AnyAgent::Gemini(a) => runner::run_print(a, prompt, max_turns).await,
-            AnyAgent::Ollama(a) => runner::run_print(a, prompt, max_turns).await,
+            AnyAgent::Anthropic(a) => runner::run_print(a, prompt, max_turns, pure_stdout).await,
+            AnyAgent::Gemini(a) => runner::run_print(a, prompt, max_turns, pure_stdout).await,
+            AnyAgent::Ollama(a) => runner::run_print(a, prompt, max_turns, pure_stdout).await,
         }
     }
 
