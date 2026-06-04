@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::path::{Component, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -221,7 +221,10 @@ impl FilePicker {
             )?;
 
             let path = &self.matches[i];
-            let display = path.to_string_lossy();
+            let mut display = path.to_string_lossy().to_string();
+            if Path::new(&path).is_dir() {
+                display.push('/');
+            }
             let truncated: String = display
                 .chars()
                 .take(cols.saturating_sub(3) as usize)
@@ -256,7 +259,7 @@ fn walk_files(root: &str) -> Vec<PathBuf> {
 
     for entry in walker.flatten() {
         let path = entry.path();
-        if !path.is_file() {
+        if !path.is_file() && !path.is_dir() {
             continue;
         }
         if path
@@ -277,4 +280,58 @@ fn walk_files(root: &str) -> Vec<PathBuf> {
         }
     }
     files
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+
+    fn with_temp_dir<F>(f: F)
+    where
+        F: FnOnce(&Path),
+    {
+        let dir = std::env::temp_dir().join(format!("zerostack_test_{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let canonical = dir.canonicalize().unwrap();
+        f(&canonical);
+        let _ = fs::remove_dir_all(&canonical);
+    }
+
+    #[test]
+    fn test_walk_files_includes_directories() {
+        with_temp_dir(|root| {
+            fs::create_dir(root.join("subdir")).unwrap();
+            fs::write(root.join("file.txt"), b"hello").unwrap();
+
+            let files = walk_files(&root.to_string_lossy());
+            let names: Vec<&str> = files.iter().map(|p| p.to_str().unwrap()).collect();
+
+            assert!(
+                names.contains(&"file.txt"),
+                "walk_files should include files"
+            );
+            assert!(
+                names.contains(&"subdir"),
+                "walk_files should include directories, got: {:?}",
+                names
+            );
+        });
+    }
+
+    #[test]
+    fn test_walk_files_includes_nested_dirs() {
+        with_temp_dir(|root| {
+            fs::create_dir_all(root.join("a").join("b")).unwrap();
+            fs::write(root.join("a").join("b").join("deep.txt"), b"deep").unwrap();
+
+            let files = walk_files(&root.to_string_lossy());
+            let names: Vec<&str> = files.iter().map(|p| p.to_str().unwrap()).collect();
+
+            assert!(names.contains(&"a"));
+            assert!(names.contains(&"a/b"));
+            assert!(names.contains(&"a/b/deep.txt"));
+        });
+    }
 }
