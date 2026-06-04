@@ -47,8 +47,8 @@ static CATALOG: LazyLock<HashMap<String, Vec<ModelEntry>>> = LazyLock::new(|| {
 
 /// Baked model entries for a provider, or `None` when the provider is not in the
 /// catalog (custom gateways, ollama — those resolve live).
-pub fn catalog_entries(provider: &str) -> Option<Vec<ModelEntry>> {
-    CATALOG.get(provider).cloned()
+pub fn catalog_entries(provider: &str) -> Option<&'static [ModelEntry]> {
+    CATALOG.get(provider).map(|v| v.as_slice())
 }
 
 #[cfg(test)]
@@ -57,7 +57,7 @@ mod tests {
 
     fn ids(provider: &str) -> Vec<String> {
         catalog_entries(provider)
-            .unwrap_or_default()
+            .unwrap_or(&[])
             .iter()
             .map(|m| m.id.clone())
             .collect()

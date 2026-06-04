@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::cli::Cli;
 use crate::config::{self, Config};
@@ -20,7 +20,7 @@ pub async fn handle(parts: &[&str], ctx: &mut SlashCtx<'_>) -> anyhow::Result<()
     }
 }
 
-static MODEL_CACHE: LazyLock<Mutex<HashMap<String, Vec<ModelEntry>>>> =
+static MODEL_CACHE: LazyLock<Mutex<HashMap<String, Arc<[ModelEntry]>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Returns the provider's models.
@@ -35,19 +35,24 @@ pub(crate) async fn fetch_models_cached(
     cli: &Cli,
     cfg: &Config,
     refresh: bool,
-) -> anyhow::Result<Vec<ModelEntry>> {
+) -> anyhow::Result<Arc<[ModelEntry]>> {
     if !refresh {
-        if let Some(hit) = MODEL_CACHE.lock().unwrap().get(provider).cloned() {
-            return Ok(hit); // guard dropped here, NOT across any await
+        if let Some(hit) = MODEL_CACHE.lock().unwrap().get(provider) {
+            return Ok(Arc::clone(hit)); // guard dropped here, NOT across any await
         }
         // No cache yet: serve the baked catalog for built-in providers — no network.
-        if !is_custom && let Some(mut models) = crate::models_catalog::catalog_entries(provider) {
-            models.retain(crate::provider::is_agent_model);
+        if !is_custom && let Some(entries) = crate::models_catalog::catalog_entries(provider) {
+            let models: Vec<ModelEntry> = entries
+                .iter()
+                .filter(|m| crate::provider::is_agent_model(m))
+                .cloned()
+                .collect();
+            let arc: Arc<[ModelEntry]> = Arc::from(models.into_boxed_slice());
             MODEL_CACHE
                 .lock()
                 .unwrap()
-                .insert(provider.to_string(), models.clone());
-            return Ok(models);
+                .insert(provider.to_string(), Arc::clone(&arc));
+            return Ok(arc);
         }
     }
     let mut models = if is_custom {
@@ -62,11 +67,12 @@ pub(crate) async fn fetch_models_cached(
         client.list_models().await?
     };
     models.retain(crate::provider::is_agent_model);
+    let arc: Arc<[ModelEntry]> = Arc::from(models.into_boxed_slice());
     MODEL_CACHE
         .lock()
         .unwrap()
-        .insert(provider.to_string(), models.clone());
-    Ok(models)
+        .insert(provider.to_string(), Arc::clone(&arc));
+    Ok(arc)
 }
 
 /// sync read for the picker (no await)
