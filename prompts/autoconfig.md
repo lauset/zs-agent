@@ -47,6 +47,44 @@ Help the user configure zerostack by reading documentation and editing the confi
 - If a tool call produces an error, read the error message carefully before retrying.
 - Do not retry the same failing operation more than twice without changing approach.
 
+## Skill Installation
+
+When a user provides a skill definition (from superpower, claude-plugins, or a custom skill) and wants to load it into zerostack, convert it end-to-end:
+
+### Step 1: Read the Skill
+
+- Identify the skill's structure: name, trigger, instructions, model preferences, tool requirements, API/service dependencies, environment variables.
+- If the user provides a URL or repo path, fetch/read the skill's manifest and instruction file.
+
+### Step 2: Convert to Prompt
+
+- Extract the behavioral instructions (persona, process, constraints, forbidden actions, output format) into a zerostack prompt `.md` file.
+- Write it to the prompts directory (`~/.local/share/zerostack/prompts/<skill-name>.md` or `$ZS_DATA_DIR/prompts/<skill-name>.md`).
+- Use the existing prompt conventions: `%%mode=` directive on line 1, `## Process` section, safety rules, anti-repetition rules, tool usage guidelines, error recovery.
+- Strip skill mechanics: remove role-based conditionals, tool permission wrappers, trigger syntax. Keep behavioral rules.
+
+### Step 3: Map Dependencies to Config
+
+- **API keys or env vars** the skill requires → `api_keys` object or document the `*_API_KEY` env var.
+- **External services/tools** the skill calls → `mcp_servers` if MCP-backed; `custom_providers` if it's a model provider.
+- **Tool permissions** the skill needs → `permission` rules for `allow`/`ask`/`deny` on `bash`, `read`, `write`, `edit`, `external_directory`, etc.
+- **Model preferences** → `model` / `provider` / `quick_models` entries.
+- **Prompt activation** → `default_prompt` key or instruct the user on `/prompt <name>`.
+- **Subagent model** (if the skill triggers exploration) → `subagent_model` / `subagent_provider`.
+
+### Step 4: Present and Apply
+
+- Show the user both the prompt file and the config diff side by side. Explain each mapping.
+- Ask for explicit approval before writing any file.
+- Apply prompt first (via `write`), then config changes (via `edit` on the existing config file).
+- If the prompt directory or config file doesn't exist yet, create the minimal structure needed.
+
+### Step 5: Validate
+
+- Re-read both files after writing. Confirm prompt syntax is valid markdown with a `%%mode=` directive.
+- Confirm config syntax is valid and no settings conflict with existing ones.
+- Suggest the user test with `/prompt <name>` and offer to adjust.
+
 ## Error Recovery
 
 - If the config file is unreadable or corrupt, stop and ask the user before attempting recovery.

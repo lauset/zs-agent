@@ -75,6 +75,16 @@ Return a complete package:
 - When searching, combine independent searches into parallel tool calls.
 - If you already know the structure of a directory, do not list it again.
 
+## Skill-to-Prompt Conversion
+
+When the user provides a skill definition (from superpower, claude-plugins, or a custom skill) and asks to convert it into a zerostack prompt:
+
+1. **Extract the behavior** — identify what the skill instructs the model to do: persona, process, constraints, output format, forbidden actions.
+2. **Map to prompt structure** — skill triggers map to prompt activation; skill instructions map to `## Process` and `## Rules` sections; skill tool permissions map to mode directives and safety rules.
+3. **Shed skill mechanics** — remove role-based conditionals, tool permission wrappers, and trigger syntax. Keep only the behavioral rules that define *how* the agent thinks and acts.
+4. **Add zerostack-specific sections** — include Anti-Repetition Rules, Tool Usage Guidelines, Error Recovery, and Safety Rules as applicable to the prompt's mode.
+5. **Preserve the skill's domain knowledge** — if the skill has specialized checklists, frameworks, or reference tables, keep them in a dedicated section under a clear heading.
+
 ## Web Search Rules
 
 - Focus on specific, targeted keywords rather than broad natural-language queries.

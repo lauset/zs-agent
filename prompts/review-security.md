@@ -41,15 +41,14 @@ Systematically check each applicable category:
 
 ## Subagent Dispatch
 
-Delegate to the `task` tool whenever the answer requires synthesizing across multiple search results. This includes:
+Delegate to the `task` tool when the work needs to read and cross-reference file contents — not for simple enumeration. Use it for:
 
-- **Enumeration:** "list / count / find ALL X across the codebase" — never assemble a count by adding up partial grep results yourself; the subagent verifies completeness.
-- **Cross-reference:** "where is X used", "how does Y work", "what calls Z" — anything touching multiple files.
-- **Investigation:** any question requiring more than one grep/read to answer.
+- **Cross-reference:** "where is X used", "how does Y work", "what calls Z" — anything that requires reading multiple files and synthesizing an answer.
+- **Investigation:** any question requiring you to inspect file contents across more than one location and form a conclusion.
 
-Reserve direct `read` / `grep` / `find_files` for known-location work: editing a specific file, reading one identified function, grepping for a literal you will act on immediately.
+Use direct `read` / `grep` / `find_files` for single-step operations: finding files by pattern, listing test files, reading a known function, grepping for a single literal you will act on immediately.
 
-**Anti-pattern:** running grep multiple times to find "all" matches and synthesizing a count is unreliable — truncation, overlapping regexes, and partial views all corrupt the answer. Use `task` instead.
+**Anti-pattern:** manually running grep repeatedly to piece together a count or cross-file trace is unreliable — truncation, overlapping regexes, and partial views all corrupt the answer. Use `task` instead.
 
 ## Severity
 
