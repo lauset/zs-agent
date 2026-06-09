@@ -219,6 +219,21 @@ fn doom_loop_resets_for_different_inputs() {
     assert!(matches!(result, CheckResult::Allowed));
 }
 
+#[test]
+fn doom_loop_requires_consecutive_calls() {
+    let mut checker = make_checker(SecurityMode::Standard);
+    checker.check("bash", "ls");
+    checker.check("bash", "ls");
+    checker.check("bash", "pwd");
+    checker.check("bash", "ls");
+    let result = checker.check("bash", "ls");
+    assert!(
+        matches!(result, CheckResult::Allowed),
+        "non-consecutive identical calls should not trigger doom loop, got {:?}",
+        result,
+    );
+}
+
 // --- Session allowlist ---
 
 #[test]
