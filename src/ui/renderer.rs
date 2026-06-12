@@ -111,13 +111,13 @@ impl Renderer {
 
     pub fn visible_lines(&self) -> usize {
         let (_, rows) = self.terminal_size();
-        rows.saturating_sub(2) as usize
+        rows.saturating_sub(4) as usize
     }
 
     pub fn buffer_line_at_row(&self, row: u16) -> Option<usize> {
         let (cols, rows) = self.terminal_size();
         let max_width = cols.saturating_sub(1) as usize;
-        let visible = rows.saturating_sub(2) as usize;
+        let visible = rows.saturating_sub(4) as usize;
         let total = self.buffer.len();
         if total == 0 {
             return None;
@@ -254,7 +254,7 @@ impl Renderer {
     pub fn render_viewport(&mut self) -> io::Result<()> {
         let (cols, rows) = self.terminal_size();
         let max_width = cols.saturating_sub(1) as usize;
-        let visible = rows.saturating_sub(2) as usize;
+        let visible = rows.saturating_sub(4) as usize;
         let total = self.buffer.len();
         let mut stdout = io::stdout();
         write!(stdout, "{}", Hide)?;
@@ -357,10 +357,10 @@ impl Renderer {
             return;
         }
         let (cols, rows) = self.terminal_size();
-        if rows < 3 {
+        if rows < 5 {
             return;
         }
-        let max_content = rows.saturating_sub(2);
+        let max_content = rows.saturating_sub(4);
         if self.lines >= max_content {
             let mut stdout = io::stdout();
             let _ = stdout.execute(ScrollUp(1));
@@ -379,7 +379,7 @@ impl Renderer {
 
     fn content_row(&self) -> u16 {
         let (_, rows) = self.terminal_size();
-        self.lines.min(rows.saturating_sub(3))
+        self.lines.min(rows.saturating_sub(5))
     }
 
     pub fn resize(&mut self) {
@@ -571,7 +571,7 @@ impl Renderer {
         let lines: SmallVec<[&str; 4]> = input_line.split('\n').collect();
         let line_count = lines.len();
 
-        let last_line = rows.saturating_sub(2) as usize - 1;
+        let last_line = rows.saturating_sub(3) as usize - 1;
         let available_rows = last_line + 1;
         let need_scroll = line_count > available_rows;
         let first_visible = if need_scroll {
@@ -624,8 +624,8 @@ impl Renderer {
         };
 
         if visible_line_count < self.prev_input_height {
-            let old_start = rows.saturating_sub(2) - self.prev_input_height as u16 + 1;
-            let new_start = rows.saturating_sub(2) - visible_line_count as u16 + 1;
+            let old_start = rows.saturating_sub(3) - self.prev_input_height as u16 + 1;
+            let new_start = rows.saturating_sub(3) - visible_line_count as u16 + 1;
             for row in old_start..new_start {
                 stdout.execute(MoveTo(0, row))?;
                 if let Some(bg) = self.input_bg {
@@ -637,13 +637,31 @@ impl Renderer {
         }
         self.prev_input_height = visible_line_count;
 
+        // Thin separator line above input
+        let input_top = rows
+            .saturating_sub(3)
+            .saturating_sub(visible_line_count as u16)
+            .saturating_add(1);
+        let sep_above = input_top.saturating_sub(1);
+        if sep_above < input_top {
+            stdout.execute(MoveTo(0, sep_above))?;
+            write!(
+                stdout,
+                "{}",
+                SetForegroundColor(self.color(Color::DarkGrey))
+            )?;
+            let sep: String = "─".repeat(cols as usize);
+            write!(stdout, "{}", sep)?;
+            write!(stdout, "{}", ResetColor)?;
+        }
+
         for (i, line) in lines
             .iter()
             .enumerate()
             .take(line_count)
             .skip(first_visible)
         {
-            let render_row = (rows.saturating_sub(2) - visible_line_count as u16 + 1)
+            let render_row = (rows.saturating_sub(3) - visible_line_count as u16 + 1)
                 + (i - first_visible) as u16;
             stdout.execute(MoveTo(0, render_row))?;
 
@@ -686,6 +704,20 @@ impl Renderer {
             write!(stdout, "{}", ResetColor)?;
         }
 
+        // Thin separator line below input
+        let sep_below = rows.saturating_sub(2);
+        if sep_below < rows.saturating_sub(1) {
+            stdout.execute(MoveTo(0, sep_below))?;
+            write!(
+                stdout,
+                "{}",
+                SetForegroundColor(self.color(Color::DarkGrey))
+            )?;
+            let sep: String = "─".repeat(cols as usize);
+            write!(stdout, "{}", sep)?;
+            write!(stdout, "{}", ResetColor)?;
+        }
+
         // Status line
         stdout.execute(MoveTo(0, status_row))?;
         if let Some(bg) = self.status_bg {
@@ -714,7 +746,7 @@ impl Renderer {
         // Cursor
         let cursor_render_idx = cursor_line.saturating_sub(first_visible);
         let cursor_row =
-            (rows.saturating_sub(2) - visible_line_count as u16 + 1) + cursor_render_idx as u16;
+            (rows.saturating_sub(3) - visible_line_count as u16 + 1) + cursor_render_idx as u16;
         let cursor_x = (prompt_width + cursor_display_col.saturating_sub(h_scroll)) as u16;
         stdout.execute(MoveTo(cursor_x, cursor_row))?;
         write!(stdout, "{}", Show)?;
