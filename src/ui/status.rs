@@ -28,7 +28,13 @@ impl StatusLine {
         btw_in: u64,
         btw_out: u64,
     ) -> String {
-        let state = if is_running { "running" } else { "ready" };
+        let state = if is_running {
+            "running".to_string()
+        } else if let Some(name) = prompt_name {
+            format!("prompt:[{}]", name)
+        } else {
+            String::new()
+        };
         let dir = Path::new(&session.working_dir)
             .file_name()
             .and_then(|n| n.to_str())
@@ -83,11 +89,6 @@ impl StatusLine {
             None => String::new(),
         };
 
-        let prompt_badge = match prompt_name {
-            Some(name) => format!(" [{}]", name),
-            None => String::new(),
-        };
-
         let perm_badge = match perm_mode {
             Some(m) if m != "standard" => format!(" | mode:{}", m),
             _ => String::new(),
@@ -99,7 +100,7 @@ impl StatusLine {
         };
 
         format!(
-            "{}{}{} | {}{} | {}/{} ({}%) | {}msgs{}{} | {}{}{}{}",
+            "{}{}{} | {}{} | {}/{} ({}%){}{} | {}{}{}",
             dir,
             cost_str,
             btw_badge,
@@ -108,11 +109,9 @@ impl StatusLine {
             fmt_tokens(used),
             fmt_tokens(ctx),
             pct,
-            session.messages.len(),
             token_detail,
             compact_badge,
             state,
-            prompt_badge,
             perm_badge,
             chain_badge,
         )
