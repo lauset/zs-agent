@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 mod agent;
 mod auth;
 mod cli;

@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 #[cfg(all(test, feature = "acp"))]
 mod acp_tests;
 #[cfg(all(test, feature = "archmd"))]
