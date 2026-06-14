@@ -9,6 +9,8 @@ mod btw_tests;
 #[cfg(test)]
 mod checker_tests;
 #[cfg(test)]
+mod config_tests;
+#[cfg(test)]
 mod crc_tests;
 #[cfg(test)]
 mod edit_tests;

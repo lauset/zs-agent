@@ -212,5 +212,23 @@ pub fn load() -> Config {
         cfg.mcp_servers = Some(defaults);
     }
 
+    // Validate the opt-in mid-turn compaction threshold once, here at load,
+    // rather than in `resolve_mid_turn_compact_threshold` (which runs per
+    // provider call in the hot path and would spam). Out-of-range values are
+    // ignored — mid-turn compaction simply stays off — but we say so loudly and
+    // explain the correct form instead of failing silently.
+    if let Some(t) = cfg.mid_turn_compact_threshold
+        && !(t > 0.0 && t <= 1.0)
+    {
+        eprintln!(
+            "warning: mid_turn_compact_threshold = {t} is out of range and will be ignored \
+             (mid-turn compaction disabled).\n\
+             It must be a fraction greater than 0 and at most 1, where the value is the \
+             fraction of the context window at which to compact during a turn \
+             (e.g. 0.80 = compact at 80%). Recommended starting value: 0.80. \
+             Remove the key to disable mid-turn compaction without this warning.",
+        );
+    }
+
     cfg
 }
