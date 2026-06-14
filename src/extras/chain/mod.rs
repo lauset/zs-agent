@@ -55,12 +55,14 @@ impl ChainPhase {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum ChainDecision {
     Decline,
     Accept(Option<String>),
     NotChain,
 }
 
+#[allow(dead_code)]
 pub fn parse_chain_decision(input: &str) -> ChainDecision {
     let trimmed = input.trim();
     let lower = trimmed.to_lowercase();
