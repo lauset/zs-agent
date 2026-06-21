@@ -601,10 +601,7 @@ fn stop_turn_context_exhausted(
         prompt_tokens,
         threshold,
         session.context_window,
-        cfg.resolve_reserve_tokens(
-            &session.model,
-            &crate::config::quick_models_map(cfg),
-        ),
+        cfg.resolve_reserve_tokens(&session.model, &crate::config::quick_models_map(cfg)),
         cfg.resolve_keep_recent_tokens(),
     ) {
         renderer.write_line(&line, Color::White)?;

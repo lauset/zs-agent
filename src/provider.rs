@@ -213,13 +213,6 @@ impl AnyClient {
         instructions: Option<&str>,
     ) -> anyhow::Result<String> {
         let conversation = serialize_conversation(messages);
-        let conversation = if conversation.len() > 6000 {
-            let mut truncated = String::from(&conversation[..6000]);
-            truncated.push_str("\n\n... [truncated]");
-            truncated
-        } else {
-            conversation
-        };
 
         let prompt = prompt::COMPACTION_PROMPT
             .replace("{conversation}", &conversation)

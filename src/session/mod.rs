@@ -164,7 +164,7 @@ impl Session {
             .sum();
         self.calibrated_tokens.saturating_add(delta)
     }
-    
+
     /// Pick the compaction boundary: `messages[..cut]` get summarized and
     /// `messages[cut..]` are kept as recent context. Walks backward summing
     /// per-message `estimated_tokens` until `keep_recent` is covered.
@@ -207,19 +207,23 @@ impl Session {
     }
 
     pub fn compacted_context(&self) -> (Option<&str>, usize) {
-        match self.compactions.last() {
-            Some(c) => (Some(c.summary.as_str()), c.first_kept_index),
-            None => (None, 0),
+        let c = match self.compactions.last() {
+            Some(c) => c,
+            None => return (None, 0),
+        };
+        // Locate the summary System message at runtime rather than trusting
+        // a stored index, which drifts if messages are inserted before it.
+        for (i, msg) in self.messages.iter().enumerate() {
+            if msg.role == MessageRole::System && msg.content.as_str() == c.summary.as_str() {
+                return (Some(c.summary.as_str()), i + 1);
+            }
         }
+        (None, 0)
     }
 
     pub fn compress(&mut self, summary: String, first_kept_index: usize, token_savings: u64) {
         let summarized_count = first_kept_index;
-        // Subtract the saved tokens from estimated total
-        self.total_estimated_tokens = self.total_estimated_tokens.saturating_sub(token_savings);
-        // Add back estimated tokens for the summary itself
         let summary_tokens = Self::estimate_tokens(&summary);
-        self.total_estimated_tokens = self.total_estimated_tokens.saturating_add(summary_tokens);
 
         // Insert a System message with the summary at the boundary
         let summary_msg = SessionMessage {
@@ -232,6 +236,10 @@ impl Session {
         self.messages.drain(..first_kept_index);
         self.messages.insert(0, summary_msg);
 
+        // Recompute total from remaining messages so the count is always
+        // consistent — no underflow risk when token_savings is stale.
+        self.total_estimated_tokens = self.messages.iter().map(|m| m.estimated_tokens).sum();
+
         self.compactions.push(Compaction {
             summary: CompactString::from(summary),
             first_kept_index: 1, // The summary is at index 0
@@ -243,9 +251,6 @@ impl Session {
         // Compaction reindexes messages, so the calibration anchor no longer
         // lines up. Drop it; the next completed turn re-anchors.
         self.reset_calibration();
-
-        // Adjust all compaction first_kept indices for the removed messages
-        // (since we never have >1 compaction with the current simple approach, this is fine)
         self.updated_at = CompactString::new(chrono::Utc::now().to_rfc3339());
     }
 }

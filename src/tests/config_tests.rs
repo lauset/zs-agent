@@ -54,13 +54,28 @@ fn context_exhausted_report_math() {
     // prompt 18000 -> 90% of window, overflow 18000 - 16000 = 2000.
     let lines = crate::ui::context_exhausted_report(18_000, 0.80, 20_000, 8_192, 6_000);
     let joined = lines.join("\n");
-    assert!(joined.contains("context window .............. 20000 tokens"), "{joined}");
+    assert!(
+        joined.contains("context window .............. 20000 tokens"),
+        "{joined}"
+    );
     assert!(joined.contains("16000 tokens  (80% of window)"), "{joined}");
     assert!(joined.contains("18000 tokens  (90% of window)"), "{joined}");
-    assert!(joined.contains("overflow above ceiling ...... 2000 tokens"), "{joined}");
-    assert!(joined.contains("reserved for response ....... 8192 tokens"), "{joined}");
-    assert!(joined.contains("kept-recent budget .......... 6000 tokens"), "{joined}");
+    assert!(
+        joined.contains("overflow above ceiling ...... 2000 tokens"),
+        "{joined}"
+    );
+    assert!(
+        joined.contains("reserved for response ....... 8192 tokens"),
+        "{joined}"
+    );
+    assert!(
+        joined.contains("kept-recent budget .......... 6000 tokens"),
+        "{joined}"
+    );
     // Guidance references the actual pressure and the floor the KV cache must hold.
-    assert!(joined.contains("raise mid_turn_compact_threshold above 90%"), "{joined}");
+    assert!(
+        joined.contains("raise mid_turn_compact_threshold above 90%"),
+        "{joined}"
+    );
     assert!(joined.contains("hold 18000+ tokens"), "{joined}");
 }
