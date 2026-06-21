@@ -1183,6 +1183,7 @@ pub async fn run_interactive(
                                         }
                                         renderer.write_line("", Color::White)?;
                                         session.add_message(MessageRole::User, &msg);
+                                        agent = None;
                                         start_main_run(
                                             &msg, &mut agent, &client, session, cli,
                                             cfg, context, &permission, &ask_tx, &sandbox,
@@ -1303,6 +1304,7 @@ pub async fn run_interactive(
                                 }
                                 renderer.write_line("", Color::White)?;
                                 session.add_message(MessageRole::User, &msg);
+                                agent = None;
                                 start_main_run(
                                     &msg, &mut agent, &client, session, cli,
                                     cfg, context, &permission, &ask_tx, &sandbox,
@@ -1454,6 +1456,7 @@ pub async fn run_interactive(
                                         }
                                         text = msg.to_string().into();
                                         is_dot_cmd = false;
+                                        agent = None;
                                     } else {
                                         renderer.write_line(&format!("error: unknown prompt '{}'", prompt_name), C_ERROR)?;
                                     }
@@ -1479,6 +1482,7 @@ pub async fn run_interactive(
                                                     }
                                                 }
                                         }
+                                        agent = None;
                                         renderer.write_line(&format!("switched to prompt '{}'", prompt_name), C_AGENT)?;
                                         if !cli.no_session
                                             && let Err(e) = crate::session::storage::save_session(session)
