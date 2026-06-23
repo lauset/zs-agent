@@ -63,6 +63,7 @@ fn default_quick_models() -> HashMap<String, QuickModelConfig> {
             output_token_cost: 0.1966,
             reserve_tokens: None,
             temperature: None,
+            extra_body: None,
         },
     );
     map.insert(
@@ -74,6 +75,7 @@ fn default_quick_models() -> HashMap<String, QuickModelConfig> {
             output_token_cost: 0.87,
             reserve_tokens: None,
             temperature: None,
+            extra_body: None,
         },
     );
     map
@@ -111,6 +113,7 @@ pub fn save_quick_model(
             output_token_cost,
             reserve_tokens: None,
             temperature: None,
+            extra_body: None,
         },
     );
 

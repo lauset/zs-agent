@@ -1,4 +1,63 @@
 use crate::config::Config;
+use crate::config::types::QuickModelConfig;
+use serde_json::json;
+use std::collections::HashMap;
+
+fn qm(model: &str, extra_body: Option<serde_json::Value>) -> QuickModelConfig {
+    QuickModelConfig {
+        provider: "openrouter".into(),
+        model: model.into(),
+        input_token_cost: 0.0,
+        output_token_cost: 0.0,
+        reserve_tokens: None,
+        temperature: None,
+        extra_body,
+    }
+}
+
+#[test]
+fn extra_body_unset_by_default() {
+    let cfg = Config::default();
+    assert_eq!(cfg.resolve_extra_body("any/model", &HashMap::new()), None);
+}
+
+#[test]
+fn extra_body_global_applies_to_base_model() {
+    let cfg = Config {
+        extra_body: Some(json!({ "plugins": { "preset": "general-budget" } })),
+        ..Config::default()
+    };
+    assert_eq!(
+        cfg.resolve_extra_body("openrouter/fusion", &HashMap::new()),
+        Some(json!({ "plugins": { "preset": "general-budget" } }))
+    );
+}
+
+#[test]
+fn extra_body_quick_model_overrides_global() {
+    let cfg = Config {
+        extra_body: Some(json!({ "plugins": { "preset": "general-budget" } })),
+        ..Config::default()
+    };
+    let mut map = HashMap::new();
+    map.insert(
+        "quality".to_string(),
+        qm(
+            "openrouter/fusion",
+            Some(json!({ "plugins": { "preset": "quality" } })),
+        ),
+    );
+    // Matching quick-model entry wins over the global default.
+    assert_eq!(
+        cfg.resolve_extra_body("openrouter/fusion", &map),
+        Some(json!({ "plugins": { "preset": "quality" } }))
+    );
+    // A different model falls back to the global default.
+    assert_eq!(
+        cfg.resolve_extra_body("other/model", &map),
+        Some(json!({ "plugins": { "preset": "general-budget" } }))
+    );
+}
 
 #[test]
 fn mid_turn_threshold_unset_by_default() {

@@ -272,6 +272,7 @@ async fn run_prompt(
     };
 
     let temperature = crate::config::resolve_temperature(&state.cli, &state.cfg, &model_str);
+    let extra_body = crate::config::resolve_extra_body(&state.cfg, &model_str);
     let agent = crate::provider::build_agent(
         model,
         &state.cli,
@@ -282,6 +283,7 @@ async fn run_prompt(
         sandbox,
         false,
         temperature,
+        extra_body,
         #[cfg(feature = "mcp")]
         None::<&crate::extras::mcp::McpClientManager>,
     )

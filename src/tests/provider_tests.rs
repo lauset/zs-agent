@@ -2,7 +2,8 @@ use crate::auth::ProviderKind;
 use crate::config::{ApiStyle, CustomProviderConfig};
 use crate::provider::ModelEntry;
 use crate::provider::{
-    expand_env, is_agent_model, resolve_api_style, resolve_provider_config, serialize_conversation,
+    expand_env, is_agent_model, merge_extra_body, resolve_api_style, resolve_provider_config,
+    serialize_conversation,
 };
 use crate::session::{MessageRole, SessionMessage};
 use compact_str::CompactString;
@@ -226,4 +227,33 @@ fn resolve_custom_provider() {
     let cfg = resolve_provider_config("my-gw", &custom).unwrap();
     assert_eq!(cfg.kind, ProviderKind::OpenAI);
     assert_eq!(cfg.base_url.as_deref(), Some("https://mygw.example/v1"));
+}
+
+#[test]
+fn merge_extra_body_combines_routing_and_user_keys() {
+    // OpenRouter routing (provider.order) plus a user `plugins` preset must both
+    // survive in the request body.
+    let routing = serde_json::json!({
+        "provider": { "order": ["Anthropic"], "allow_fallbacks": true }
+    });
+    let user = serde_json::json!({ "plugins": { "preset": "general-budget" } });
+    let merged = merge_extra_body(Some(routing), Some(user)).unwrap();
+    assert_eq!(merged["provider"]["order"][0], "Anthropic");
+    assert_eq!(merged["plugins"]["preset"], "general-budget");
+}
+
+#[test]
+fn merge_extra_body_user_key_overrides_base() {
+    let base = serde_json::json!({ "provider": { "order": ["Anthropic"] } });
+    let user = serde_json::json!({ "provider": { "order": ["OpenAI"] } });
+    let merged = merge_extra_body(Some(base), Some(user)).unwrap();
+    assert_eq!(merged["provider"]["order"][0], "OpenAI");
+}
+
+#[test]
+fn merge_extra_body_handles_absent_sides() {
+    let val = serde_json::json!({ "plugins": { "preset": "quality" } });
+    assert_eq!(merge_extra_body(None, Some(val.clone())), Some(val.clone()));
+    assert_eq!(merge_extra_body(Some(val.clone()), None), Some(val));
+    assert_eq!(merge_extra_body(None, None), None);
 }

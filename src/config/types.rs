@@ -17,6 +17,11 @@ pub struct QuickModelConfig {
     /// global `temperature` setting but is overridden by `--temperature`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
+    /// Provider-specific JSON shallow-merged into the completion request body
+    /// (e.g. OpenRouter `plugins` routing presets). Overrides the global
+    /// `extra_body` for this model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_body: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

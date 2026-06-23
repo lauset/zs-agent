@@ -615,6 +615,7 @@ async fn main() -> anyhow::Result<()> {
             }
         } else {
             let temperature = config::resolve_temperature(&cli, &cfg, &model);
+            let extra_body = config::resolve_extra_body(&cfg, &model);
             let agent = provider::build_agent(
                 completion_model,
                 &cli,
@@ -625,6 +626,7 @@ async fn main() -> anyhow::Result<()> {
                 sandbox.clone(),
                 true,
                 temperature,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 None,
             )
@@ -665,6 +667,7 @@ async fn main() -> anyhow::Result<()> {
         if cli.loop_mode {
             let model_completion = client.completion_model(model.to_string());
             let temperature = config::resolve_temperature(&cli, &cfg, &model);
+            let extra_body = config::resolve_extra_body(&cfg, &model);
             let agent = provider::build_agent(
                 model_completion,
                 &cli,
@@ -675,6 +678,7 @@ async fn main() -> anyhow::Result<()> {
                 sandbox.clone(),
                 true,
                 temperature,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 None,
             )
