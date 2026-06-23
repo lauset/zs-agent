@@ -859,6 +859,7 @@ pub async fn run_interactive(
                 let mcp_ref = ensure_mcp_manager(&mut mcp_manager, cfg).await;
                 let model = client.completion_model(session.model.to_string());
                 let temperature = crate::config::resolve_temperature(cli, cfg, &session.model);
+                let extra_body = crate::config::resolve_extra_body(cfg, &session.model);
                 agent = Some(
                     crate::provider::build_agent(
                         model,
@@ -870,6 +871,7 @@ pub async fn run_interactive(
                         sandbox.clone(),
                         reasoning_enabled,
                         temperature,
+                        extra_body,
                         #[cfg(feature = "mcp")]
                         mcp_ref,
                     )
@@ -900,6 +902,7 @@ pub async fn run_interactive(
                 let mcp_ref = ensure_mcp_manager(&mut mcp_manager, cfg).await;
                 let model = client.completion_model(session.model.to_string());
                 let temperature = crate::config::resolve_temperature(cli, cfg, &session.model);
+                let extra_body = crate::config::resolve_extra_body(cfg, &session.model);
                 agent = Some(
                     crate::provider::build_agent(
                         model,
@@ -911,6 +914,7 @@ pub async fn run_interactive(
                         sandbox.clone(),
                         reasoning_enabled,
                         temperature,
+                        extra_body,
                         #[cfg(feature = "mcp")]
                         mcp_ref,
                     )
@@ -998,6 +1002,7 @@ pub async fn run_interactive(
             let model = client_clone.completion_model(session_model.clone());
             let temperature =
                 crate::config::resolve_temperature(&cli_clone, &cfg_clone, &session_model);
+            let extra_body = crate::config::resolve_extra_body(&cfg_clone, &session_model);
             let a = crate::provider::build_agent(
                 model,
                 &cli_clone,
@@ -1008,6 +1013,7 @@ pub async fn run_interactive(
                 sandbox_clone,
                 reasoning_enabled,
                 temperature,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 mcp.as_ref(),
             )
@@ -1506,8 +1512,10 @@ pub async fn run_interactive(
                                         let model = client.completion_model(session.model.to_string());
                                         let temperature =
                                             crate::config::resolve_temperature(cli, cfg, &session.model);
+                                        let extra_body =
+                                            crate::config::resolve_extra_body(cfg, &session.model);
                                         let btw_agent = crate::provider::build_btw_agent(
-                                            model, cli, cfg, context, &permission, &ask_tx, reasoning_enabled, temperature,
+                                            model, cli, cfg, context, &permission, &ask_tx, reasoning_enabled, temperature, extra_body,
                                         );
                                         let runner = btw_agent.spawn_btw(
                                             btw_text.to_string(), snapshot, btw_tx.clone(), id,
@@ -1675,6 +1683,8 @@ pub async fn run_interactive(
                                                 let model = client.completion_model(session.model.to_string());
                                                 let temperature =
                                                     crate::config::resolve_temperature(cli, cfg, &session.model);
+                                                let extra_body =
+                                                    crate::config::resolve_extra_body(cfg, &session.model);
                                                 agent = Some(crate::provider::build_agent(
                                                     model,
                                                     cli,
@@ -1685,6 +1695,7 @@ pub async fn run_interactive(
                                                     sandbox.clone(),
                                                     reasoning_enabled,
                                                     temperature,
+                                                    extra_body,
                                                     #[cfg(feature = "mcp")] mcp_ref,
                                                 ).await);
                                                 render_session(&mut renderer, session, cli, cfg, context)?;

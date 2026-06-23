@@ -177,6 +177,26 @@ fn openrouter_anthropic_routing(model_id: &str) -> Option<serde_json::Value> {
     })
 }
 
+/// Shallow-merges user-configured `extra_body` into provider-internal routing
+/// params (e.g. OpenRouter's `provider.order`). Top-level keys from `extra_body`
+/// win on collision. Returns `None` when both are absent so callers can avoid an
+/// empty `additional_params` call.
+pub(crate) fn merge_extra_body(
+    base: Option<serde_json::Value>,
+    extra: Option<serde_json::Value>,
+) -> Option<serde_json::Value> {
+    match (base, extra) {
+        (Some(serde_json::Value::Object(mut b)), Some(serde_json::Value::Object(e))) => {
+            b.extend(e);
+            Some(serde_json::Value::Object(b))
+        }
+        (base, None) => base,
+        (None, extra) => extra,
+        // Non-object base (shouldn't happen for routing) — user value takes over.
+        (Some(_), extra) => extra,
+    }
+}
+
 impl AnyClient {
     #[allow(dead_code)]
     pub fn provider_name(&self) -> &'static str {
@@ -740,6 +760,7 @@ async fn build_openai_agent(
     sandbox: Sandbox,
     reasoning_enabled: bool,
     temperature: Option<f64>,
+    extra_body: Option<serde_json::Value>,
     #[cfg(feature = "mcp")] mcp_manager: Option<&McpClientManager>,
 ) -> OpenAiAgent {
     match model {
@@ -754,7 +775,7 @@ async fn build_openai_agent(
                 sandbox,
                 reasoning_enabled,
                 temperature,
-                None,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
@@ -771,7 +792,7 @@ async fn build_openai_agent(
                 sandbox,
                 reasoning_enabled,
                 temperature,
-                None,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
@@ -791,10 +812,11 @@ pub async fn build_agent(
     sandbox: Sandbox,
     reasoning_enabled: bool,
     temperature: Option<f64>,
+    extra_body: Option<serde_json::Value>,
     #[cfg(feature = "mcp")] mcp_manager: Option<&McpClientManager>,
 ) -> AnyAgent {
     match model {
-        AnyModel::OpenRouter(m, extra) => AnyAgent::OpenRouter(
+        AnyModel::OpenRouter(m, routing) => AnyAgent::OpenRouter(
             builder::build_agent_inner(
                 m,
                 cli,
@@ -805,7 +827,7 @@ pub async fn build_agent(
                 sandbox.clone(),
                 reasoning_enabled,
                 temperature,
-                extra,
+                merge_extra_body(routing, extra_body),
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
@@ -822,6 +844,7 @@ pub async fn build_agent(
                 sandbox.clone(),
                 reasoning_enabled,
                 temperature,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
@@ -838,7 +861,7 @@ pub async fn build_agent(
                 sandbox.clone(),
                 reasoning_enabled,
                 temperature,
-                None,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
@@ -855,7 +878,7 @@ pub async fn build_agent(
                 sandbox.clone(),
                 reasoning_enabled,
                 temperature,
-                None,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
@@ -872,7 +895,7 @@ pub async fn build_agent(
                 sandbox,
                 reasoning_enabled,
                 temperature,
-                None,
+                extra_body,
                 #[cfg(feature = "mcp")]
                 mcp_manager,
             )
@@ -892,9 +915,10 @@ pub fn build_btw_agent(
     ask_tx: &Option<AskSender>,
     reasoning_enabled: bool,
     temperature: Option<f64>,
+    extra_body: Option<serde_json::Value>,
 ) -> AnyAgent {
     match model {
-        AnyModel::OpenRouter(m, extra) => AnyAgent::OpenRouter(builder::build_btw_agent_inner(
+        AnyModel::OpenRouter(m, routing) => AnyAgent::OpenRouter(builder::build_btw_agent_inner(
             m,
             cli,
             cfg,
@@ -903,7 +927,7 @@ pub fn build_btw_agent(
             ask_tx,
             reasoning_enabled,
             temperature,
-            extra,
+            merge_extra_body(routing, extra_body),
         )),
         AnyModel::OpenAI(m) => AnyAgent::OpenAI(match m {
             OpenAiModel::Responses(m) => OpenAiAgent::Responses(builder::build_btw_agent_inner(
@@ -915,7 +939,7 @@ pub fn build_btw_agent(
                 ask_tx,
                 reasoning_enabled,
                 temperature,
-                None,
+                extra_body,
             )),
             OpenAiModel::Completions(m) => {
                 OpenAiAgent::Completions(builder::build_btw_agent_inner(
@@ -927,7 +951,7 @@ pub fn build_btw_agent(
                     ask_tx,
                     reasoning_enabled,
                     temperature,
-                    None,
+                    extra_body,
                 ))
             }
         }),
@@ -940,7 +964,7 @@ pub fn build_btw_agent(
             ask_tx,
             reasoning_enabled,
             temperature,
-            None,
+            extra_body,
         )),
         AnyModel::Gemini(m) => AnyAgent::Gemini(builder::build_btw_agent_inner(
             m,
@@ -951,7 +975,7 @@ pub fn build_btw_agent(
             ask_tx,
             reasoning_enabled,
             temperature,
-            None,
+            extra_body,
         )),
         AnyModel::Ollama(m) => AnyAgent::Ollama(builder::build_btw_agent_inner(
             m,
@@ -962,7 +986,7 @@ pub fn build_btw_agent(
             ask_tx,
             reasoning_enabled,
             temperature,
-            None,
+            extra_body,
         )),
     }
 }
