@@ -345,27 +345,9 @@ async fn handle_mcp(parts: &[&str], ctx: &mut SlashCtx<'_>) -> anyhow::Result<()
         write_ok(ctx.renderer, "no MCP servers configured");
         return Ok(());
     };
-    if mgr.handles.is_empty() {
-        write_ok(ctx.renderer, "no MCP servers connected");
-    } else if parts.len() == 1 {
-        write_ok(ctx.renderer, "MCP servers:");
-        for handle in &mgr.handles {
-            match handle.list_tools().await {
-                Ok(tools) => {
-                    write_result(
-                        ctx.renderer,
-                        format!("  {} ({} tools)", handle.server_name, tools.len()),
-                    );
-                }
-                Err(e) => {
-                    write_error(
-                        ctx.renderer,
-                        format!("  {} (error: {})", handle.server_name, e),
-                    );
-                }
-            }
-        }
-    } else {
+
+    // `/mcp <server>` — list tools for one server.
+    if parts.len() > 1 {
         let name = parts[1].trim();
         if let Some(handle) = mgr.handles.iter().find(|h| h.server_name == name) {
             match handle.list_tools().await {
@@ -387,11 +369,74 @@ async fn handle_mcp(parts: &[&str], ctx: &mut SlashCtx<'_>) -> anyhow::Result<()
                     );
                 }
             }
+        } else if is_oauth_server(ctx, name) {
+            write_error(
+                ctx.renderer,
+                format!("server '{name}' is not connected (run /mcp login {name})"),
+            );
+        } else if server_is_configured(ctx, name) {
+            write_error(ctx.renderer, format!("server '{name}' is not connected"));
         } else {
-            write_error(ctx.renderer, format!("unknown MCP server: '{}'", name));
+            write_error(ctx.renderer, format!("unknown MCP server: '{name}'"));
+        }
+        return Ok(());
+    }
+
+    // `/mcp` — list all configured servers, green = connected, red = not.
+    let Some(servers) = ctx.cfg.mcp_servers.as_ref().filter(|s| !s.is_empty()) else {
+        write_ok(ctx.renderer, "no MCP servers configured");
+        return Ok(());
+    };
+    write_ok(ctx.renderer, "MCP servers:");
+    let mut names: Vec<&String> = servers.keys().collect();
+    names.sort();
+    for name in names {
+        if let Some(handle) = mgr
+            .handles
+            .iter()
+            .find(|h| h.server_name.as_str() == name.as_str())
+        {
+            let label = match handle.list_tools().await {
+                Ok(tools) => format!("  + {name} ({} tools)", tools.len()),
+                Err(_) => format!("  + {name} (connected)"),
+            };
+            ctx.renderer
+                .write_line(&label, crossterm::style::Color::Green)?;
+        } else {
+            let oauth = matches!(
+                servers.get(name),
+                Some(crate::extras::mcp::config::McpServerConfig::Url { oauth: Some(o), .. })
+                    if o.settings().is_some()
+            );
+            let label = if oauth {
+                format!("  - {name} (unauthenticated, run /mcp login {name})")
+            } else {
+                format!("  - {name} (not connected)")
+            };
+            ctx.renderer
+                .write_line(&label, crossterm::style::Color::Red)?;
         }
     }
     Ok(())
+}
+
+/// True if a server name exists in config.
+#[cfg(feature = "mcp")]
+fn server_is_configured(ctx: &SlashCtx<'_>, name: &str) -> bool {
+    ctx.cfg
+        .mcp_servers
+        .as_ref()
+        .is_some_and(|m| m.contains_key(name))
+}
+
+/// True if a configured server is a URL server with OAuth enabled.
+#[cfg(feature = "mcp")]
+fn is_oauth_server(ctx: &SlashCtx<'_>, name: &str) -> bool {
+    use crate::extras::mcp::config::McpServerConfig;
+    matches!(
+        ctx.cfg.mcp_servers.as_ref().and_then(|m| m.get(name)),
+        Some(McpServerConfig::Url { oauth: Some(o), .. }) if o.settings().is_some()
+    )
 }
 
 /// Resolve a URL-based server's OAuth settings + url from config, or report why not.

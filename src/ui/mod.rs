@@ -1984,6 +1984,29 @@ pub async fn run_interactive(
                     }
                 }
             }
+            // Consume the background prebuild as soon as it is ready (while idle)
+            // so MCP connection notices render in the transcript instead of the
+            // prebuild's stderr logging racing against the alt-screen TUI.
+            Some(prebuilt) = async { prebuild_rx.as_mut()?.recv().await }, if agent.is_none() => {
+                #[cfg(feature = "mcp")]
+                {
+                    let (built_agent, built_mcp) = prebuilt;
+                    agent = Some(built_agent);
+                    mcp_manager = built_mcp;
+                    if let Some(m) = mcp_manager.as_mut() {
+                        for notice in m.take_notices() {
+                            renderer.write_line(&notice, C_ERROR)?;
+                        }
+                    }
+                }
+                #[cfg(not(feature = "mcp"))]
+                {
+                    agent = Some(prebuilt);
+                }
+                prebuild_rx = None;
+                refresh_display(&mut renderer, &mut input, session, is_running, loop_label.as_deref(), context.current_prompt_name.as_deref(), perm_mode().as_deref(), chain_label_msg.as_deref(), btw_total_cost, btw_total_in, btw_total_out)?;
+                continue;
+            }
             Some(event) = async {
                 agent_rx.as_mut()?.recv().await
             } => {
