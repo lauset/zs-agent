@@ -192,7 +192,27 @@ fn resolve_item(
         "git_status" => session.git_status.as_ref().map(format_status),
         "cwd" => Some(basename(&session.working_dir)),
         "cwd_full" => Some(contract_home(&session.working_dir)),
+        "worktree" => git_worktree(&session.working_dir),
         "model" => Some(session.model.to_string()),
+        "model_short" => Some(
+            session
+                .model
+                .rsplit('/')
+                .next()
+                .unwrap_or(&session.model)
+                .to_string(),
+        ),
+        "provider" => Some(session.provider.to_string()),
+        "message_count" => Some(session.messages.len().to_string()),
+        "session_age" => fmt_elapsed(&session.created_at),
+        "session_updated" => fmt_elapsed(&session.updated_at),
+        "clock" => Some(chrono::Local::now().format("%H:%M").to_string()),
+        "host" => hostname(),
+        "user" => std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .ok()
+            .filter(|u| !u.is_empty()),
+        "reasoning" => session.reasoning_enabled.then(|| "reasoning".to_string()),
         "tokens_input" => (session.total_input_tokens > 0 || always)
             .then(|| fmt_tokens(session.total_input_tokens)),
         "tokens_output" => (session.total_output_tokens > 0 || always)
@@ -268,6 +288,60 @@ fn contract_home(dir: &str) -> String {
     dir.to_string()
 }
 
+/// Name of the linked git worktree for `dir` (from a `.git` file pointing into
+/// `.../worktrees/<name>`), or `None` when this is not a linked worktree.
+fn git_worktree(dir: &str) -> Option<String> {
+    let dot_git = std::path::Path::new(dir).join(".git");
+    if !dot_git.is_file() {
+        return None;
+    }
+    let content = std::fs::read_to_string(&dot_git).ok()?;
+    let gitdir = content.strip_prefix("gitdir:")?.trim();
+    let p = std::path::Path::new(gitdir);
+    // .../.git/worktrees/<name>
+    if p.components().any(|c| c.as_os_str() == "worktrees") {
+        return p
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string());
+    }
+    None
+}
+
+/// Short human elapsed time since an RFC3339 timestamp (e.g. `5m`, `2h10m`).
+fn fmt_elapsed(rfc3339: &str) -> Option<String> {
+    let then = chrono::DateTime::parse_from_rfc3339(rfc3339).ok()?;
+    let secs = (chrono::Utc::now() - then.with_timezone(&chrono::Utc))
+        .num_seconds()
+        .max(0);
+    Some(if secs < 60 {
+        format!("{secs}s")
+    } else if secs < 3600 {
+        format!("{}m", secs / 60)
+    } else if secs < 86_400 {
+        format!("{}h{}m", secs / 3600, (secs % 3600) / 60)
+    } else {
+        format!("{}d{}h", secs / 86_400, (secs % 86_400) / 3600)
+    })
+}
+
+/// Machine hostname from env, falling back to `/etc/hostname` on unix.
+fn hostname() -> Option<String> {
+    if let Ok(h) = std::env::var("HOSTNAME").or_else(|_| std::env::var("HOST"))
+        && !h.is_empty()
+    {
+        return Some(h);
+    }
+    #[cfg(unix)]
+    if let Ok(h) = std::fs::read_to_string("/etc/hostname") {
+        let h = h.trim();
+        if !h.is_empty() {
+            return Some(h.to_string());
+        }
+    }
+    None
+}
+
 /// `+staged ~modified -deleted ?untracked`, only the non-zero parts; `None`
 /// when the tree is clean.
 pub fn format_changes(g: &GitStatus) -> Option<String> {
@@ -328,10 +402,17 @@ pub fn item_icon(item: &str) -> Option<&'static str> {
         "git_changes" => "\u{f044}",                                         //
         "git_status" => "\u{f021}",                                          //
         "cwd" | "cwd_full" => "\u{f07b}",                                    //
-        "model" => "\u{f2db}",                                               //
+        "worktree" => "\u{f126}",                                            //
+        "model" | "model_short" => "\u{f2db}",                               //
+        "provider" => "\u{f0c2}",                                            //
         "cost" => "\u{f155}",                                                //
         "context_used" | "context_max" | "context_percentage" => "\u{f1c0}", //
         "session_name" | "session_id" => "\u{f292}",                         //
+        "message_count" => "\u{f086}",                                       //
+        "session_age" | "session_updated" | "clock" => "\u{f017}",           //
+        "host" => "\u{f233}",                                                //
+        "user" => "\u{f007}",                                                //
+        "reasoning" => "\u{f0eb}",                                           //
         "prompt" => "\u{f120}",                                              //
         "mode" => "\u{f023}",                                                //
         "loop" => "\u{f01e}",                                                //

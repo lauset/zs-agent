@@ -78,6 +78,10 @@ pub struct Session {
     /// Computed only when the statusline uses a git change/status item. Not persisted.
     #[serde(skip)]
     pub git_status: Option<GitStatus>,
+    /// Whether reasoning is currently enabled, for the status bar. Synced from
+    /// the event loop, not persisted.
+    #[serde(skip)]
+    pub reasoning_enabled: bool,
     /// Estimated tokens for the fixed request overhead that never lives in
     /// `messages` — system prompt, tool-use preamble, context files, memory.
     /// Used only before the first real calibration (see
@@ -162,6 +166,7 @@ impl Session {
             show_cost_always: false,
             git_branch: None,
             git_status: None,
+            reasoning_enabled: false,
             overhead_tokens: 0,
         }
     }

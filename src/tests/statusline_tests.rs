@@ -265,3 +265,50 @@ fn always_shows_zero_tokens() {
         "0"
     );
 }
+
+#[test]
+fn provider_model_short_message_count() {
+    let spec = StatusLineConfig {
+        lines: vec![StatusLineLine {
+            segments: vec![
+                seg("provider"),
+                seg("separator"),
+                seg("model_short"),
+                seg("separator"),
+                seg("message_count"),
+            ],
+        }],
+    };
+    let mut session = Session::new("openrouter", "deepseek/deepseek-v4-pro", 1000);
+    session.add_message(crate::session::MessageRole::User, "hi");
+    let text = line_text(&statusline::build_lines(&spec, &session, &ctx())[0]);
+    assert_eq!(text, "openrouter deepseek-v4-pro 1");
+}
+
+#[test]
+fn reasoning_shows_only_when_enabled() {
+    let spec = StatusLineConfig {
+        lines: vec![StatusLineLine {
+            segments: vec![seg("reasoning")],
+        }],
+    };
+    let mut session = Session::new("openrouter", "m", 1000);
+    assert!(line_text(&statusline::build_lines(&spec, &session, &ctx())[0]).is_empty());
+    session.reasoning_enabled = true;
+    assert_eq!(
+        line_text(&statusline::build_lines(&spec, &session, &ctx())[0]),
+        "reasoning"
+    );
+}
+
+#[test]
+fn session_age_is_short_duration() {
+    let spec = StatusLineConfig {
+        lines: vec![StatusLineLine {
+            segments: vec![seg("session_age")],
+        }],
+    };
+    let session = Session::new("openrouter", "m", 1000); // created_at = now
+    let text = line_text(&statusline::build_lines(&spec, &session, &ctx())[0]);
+    assert!(text.ends_with('s') || text.ends_with('m'), "got {text:?}");
+}

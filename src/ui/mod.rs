@@ -777,6 +777,7 @@ pub async fn run_interactive(
     let mut response_start_line: Option<usize> = None;
     let mut show_reasoning = true;
     let mut reasoning_enabled = true;
+    session.reasoning_enabled = reasoning_enabled;
     // Seed the context-overhead estimate so the status bar reflects the system
     // prompt + context files from T0, before the first request is calibrated.
     // `ensure_agent` refreshes this whenever the preamble is rebuilt.
@@ -1042,6 +1043,7 @@ pub async fn run_interactive(
     }
 
     loop {
+        session.reasoning_enabled = reasoning_enabled;
         if last_branch_check.elapsed() >= std::time::Duration::from_secs(1) {
             session.refresh_git_branch();
             if crate::ui::statusline::needs_git_status() {

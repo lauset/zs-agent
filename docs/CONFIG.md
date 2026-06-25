@@ -421,10 +421,13 @@ Available items:
 | `session_id`          | The first 8 characters of the session id. |
 | `cwd`                 | The working directory name (folder only). |
 | `cwd_full`            | The full working directory path, with `$HOME` shortened to `~`. |
+| `worktree`            | Linked git worktree name (hidden when not in a linked worktree). |
 | `git_branch`          | Current git branch (or short commit on detached HEAD). |
 | `git_changes`         | Working-tree changes: `+staged ~modified -deleted ?untracked` (non-zero parts only; hidden when clean). |
 | `git_status`          | Upstream sync and dirty marker: `↑ahead ↓behind *`, or `✓` when clean and in sync. |
 | `model`               | The active model id. |
+| `model_short`         | The model id without its provider prefix (e.g. `deepseek-v4-pro`). |
+| `provider`            | The active provider name. |
 | `tokens_input`        | Total input tokens this session. |
 | `tokens_output`       | Total output tokens this session. |
 | `context_used`        | Current context size in tokens. |
@@ -437,6 +440,13 @@ Available items:
 | `chain`               | Chain-of-prompts label. |
 | `compaction`          | Number of compactions (`cmp:<n>`). |
 | `btw`                 | `/btw` side-question token/cost usage. |
+| `reasoning`           | Shows `reasoning` when reasoning is enabled (hidden when off). |
+| `message_count`       | Number of messages in the session. |
+| `session_age`         | Time since the session was created (e.g. `5m`, `2h10m`). |
+| `session_updated`     | Time since the last message (same format). |
+| `clock`               | Current local time (`HH:MM`). |
+| `host`                | Machine hostname. |
+| `user`                | Current username. |
 | `separator`           | Literal text from `text` (default a space). Trimmed around hidden items. |
 | `flex_separator`      | Expands to fill the remaining width; several split the space evenly. |
 
